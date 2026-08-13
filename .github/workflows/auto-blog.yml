@@ -70,7 +70,7 @@ jobs:
           # Check if there are any changes (generated markdown files or images)
           if [ -n "$(git status --porcelain)" ]; then
             git add src/content/blog/ public/assets/blog/
-            git commit -m "chore: auto-generate multilingual blog post [skip ci]"
+            git commit -m "chore: auto-generate multilingual blog post"
             git push origin main
             echo "Changes pushed successfully!"
           else
