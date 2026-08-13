@@ -12,7 +12,7 @@ const allPosts = await getCollection('blog', ({ data }) => {
 const parsedPosts = allPosts.map(post => {
   const cleanId = post.id.replace(/\.md$/, '');
   const langMatch = cleanId.match(/-([a-z]{2})$/);
-  const lang = langMatch ? langMatch[1] : 'en';
+  const lang = langMatch?.[1] || 'en';
   const baseSlug = cleanId.replace(/-[a-z]{2}$/, '');
   
   // Calculate reading time roughly (200 words per minute)
@@ -32,7 +32,7 @@ const parsedPosts = allPosts.map(post => {
 const allTags = [...new Set(parsedPosts.flatMap(post => post.data.tags))].sort();
 
 // Language map for display
-const langNames = {
+const langNames: Record<string, string> = {
   en: 'English 🇬🇧',
   hi: 'Hindi 🇮🇳',
   mr: 'Marathi 🇮🇳'

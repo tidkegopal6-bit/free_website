@@ -20,7 +20,7 @@ const { Content } = await render(post);
 // Helper to parse language and base slug
 const cleanId = post.id.replace(/\.md$/, '');
 const langMatch = cleanId.match(/-([a-z]{2})$/);
-const currentLang = langMatch ? langMatch[1] : 'en';
+const currentLang = langMatch?.[1] || 'en';
 const baseSlug = cleanId.replace(/-[a-z]{2}$/, '');
 
 // Calculate reading time
@@ -28,7 +28,7 @@ const wordCount = post.body ? post.body.split(/\s+/).length : 0;
 const readTime = Math.max(1, Math.round(wordCount / 200));
 
 // Find available translations
-const langNames = {
+const langNames: Record<string, string> = {
   en: 'English 🇬🇧',
   hi: 'Hindi 🇮🇳',
   mr: 'Marathi 🇮🇳'
@@ -37,14 +37,14 @@ const langNames = {
 const translations = posts.filter(p => {
   const pCleanId = p.id.replace(/\.md$/, '');
   const pLangMatch = pCleanId.match(/-([a-z]{2})$/);
-  const pLang = pLangMatch ? pLangMatch[1] : 'en';
+  const pLang = pLangMatch?.[1] || 'en';
   const pBaseSlug = pCleanId.replace(/-[a-z]{2}$/, '');
   
   return pBaseSlug === baseSlug && pLang !== currentLang;
 }).map(p => {
   const pCleanId = p.id.replace(/\.md$/, '');
   const pLangMatch = pCleanId.match(/-([a-z]{2})$/);
-  const pLang = pLangMatch ? pLangMatch[1] : 'en' as keyof typeof langNames;
+  const pLang = pLangMatch?.[1] || 'en';
   return {
     code: pLang,
     name: langNames[pLang] || pLang,
@@ -56,7 +56,7 @@ const translations = posts.filter(p => {
 <BaseLayout 
   title={post.data.title} 
   description={post.data.description}
-  ogImage={post.data.heroImage}
+  {...(post.data.heroImage ? { ogImage: post.data.heroImage } : {})}
 >
   <!-- Reading Progress Bar -->
   <div id="scrollProgressBar" class="fixed top-[64px] left-0 h-[3px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 w-0 z-50 transition-all duration-75"></div>
