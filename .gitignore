@@ -1,0 +1,36 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/dist
+
+# astro
+.astro/
+
+# misc
+.DS_Store
+*.pem
+
+# local env files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# IDEs and editors
+.idea/
+.project
+.directory
+.settings/
+*.sublime-workspace
+
+# Visual Studio Code cache and settings
+.vscode/*
+!.vscode/extensions.json
+.raw

@@ -1,0 +1,126 @@
+---
+description: >
+  AI behavior — anti-hallucination, no-assumptions, ask-first protocol.
+  Absolute constraints for every session. Adapted from apk_ruler rules 00, 07, 08, 09.
+globs:
+alwaysApply: true
+---
+
+# 00 — AI Behavior: Mandatory Rules
+
+## 🚨 Before Doing Anything — Session Start Protocol
+Every session MUST start by reading these files IN ORDER:
+1. `aimd/PROJECT_STATUS.md` — Feature status: Pending / InProgress / Done
+2. `aimd/AI_THINKING_CACHE.md` — Prior decisions, tried approaches, known facts
+3. `aimd/DECISIONS.md` — Architectural decisions and their rationale
+
+**If these files are missing → create them using the templates in `aimd/`.**
+
+---
+
+## The No-Assumptions Rule
+**If you have not read it, you do not know it.**
+
+Every piece of information must come from:
+1. A file you actually read in this session
+2. An `aimd/` entry written from a confirmed read
+3. An explicit user statement in the current conversation
+
+### Common Assumption Traps — Avoid All
+| ❌ Wrong | ✅ Correct |
+|---|---|
+| "The project probably uses X pattern" | Read the actual source file |
+| "Supabase table probably has column Y" | Read the schema or migration file |
+| "This component probably imports Z" | Read the actual `.astro` or `.ts` file |
+| "Free tier allows X requests" | Check official Supabase/Cloudflare pricing page |
+| "This won't cost anything" | Verify before assuming — see `01-zero-cost-guard.mdc` |
+
+---
+
+## Non-Negotiable Rules
+
+1. **Read before writing.** Never write or modify code without reading the target file first.
+2. **One feature at a time.** Complete and verify one feature before starting the next.
+3. **Never invent.** If it's not in the source, requirements, or user statement — do not add it.
+4. **When uncertain — ask.** Use the uncertainty format below. Never guess and proceed.
+5. **No placeholder code.** All written code must be complete and functional.
+6. **No repeated failed attempts.** Log failures in `aimd/AI_THINKING_CACHE.md`, try a different approach.
+7. **Verify before marking done.** A feature is Done only when it builds and works.
+8. **Cost check mandatory.** Before adding any service/package/API — verify it's $0 (see `01-zero-cost-guard.mdc`).
+
+---
+
+## Uncertainty Protocol
+If unsure about anything — ask BEFORE writing code:
+
+```
+⚠️ UNCERTAINTY: [What I am unsure about]
+Options:
+A) [Option 1] — Pros/Cons
+B) [Option 2] — Pros/Cons
+Recommendation: [Your recommended option with reason]
+Please confirm before I proceed.
+```
+
+---
+
+## Before Writing Any Code — State This
+1. "I read [filename] and found [what was there]"
+2. "My plan for this task: [specific steps]"
+3. "Cost check: [service] is free because [evidence/link]"
+4. "Security check: [RLS/auth impact if any]"
+
+---
+
+## Anti-Hallucination Cache
+Before planning any action, write to `aimd/AI_THINKING_CACHE.md`:
+```markdown
+## [Action] — [Feature/File] — [YYYY-MM-DD]
+**Files read**: [list]
+**Decision**: [what you decided]
+**Reason**: [why — based on evidence, not assumption]
+**Cost impact**: [none / [service] free tier — [limit]]
+**Security impact**: [RLS affected? secrets? auth?]
+```
+
+---
+
+## Stuck-Loop Recovery
+If stuck or repeating a failed approach:
+1. Stop the current path immediately
+2. Record failure in `aimd/AI_THINKING_CACHE.md`
+3. Propose 2–3 alternative approaches
+4. Ask for user confirmation before continuing
+
+---
+
+## Progress Reporting
+After completing any feature or significant task:
+```
+✅ Completed: [feature/file]
+📊 Status: [done count] features done, [pending] remaining
+🔒 Cost: $0 confirmed
+🧪 Verified: [how it was tested/checked]
+🔄 Next: [next feature or "all done"]
+```
+
+---
+
+## What "Done" Means for a Feature
+A feature is Done ONLY when ALL of these are true:
+- [ ] Requirements read and understood (no assumptions)
+- [ ] Code written — no TODOs, no placeholder logic
+- [ ] TypeScript compiles: `npx astro check` → 0 errors
+- [ ] Cost confirmed: $0 (free tier verified)
+- [ ] Security confirmed: RLS applied if DB touched
+- [ ] `aimd/PROJECT_STATUS.md` updated to "Done"
+- [ ] `aimd/AI_THINKING_CACHE.md` has a VERIFIED entry
+
+## Prohibited Actions
+- ❌ Writing code without reading existing files first
+- ❌ Adding any service without verifying it's $0
+- ❌ Hardcoding secrets or API keys in source files
+- ❌ Marking a feature "Done" without running `astro check`
+- ❌ Repeating the same failed approach without documenting why it changed
+- ❌ Using `any` type in TypeScript
+- ❌ Creating DB tables without RLS policies

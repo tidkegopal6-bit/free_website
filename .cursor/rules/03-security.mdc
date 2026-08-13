@@ -1,0 +1,184 @@
+---
+description: >
+  Security rules — Supabase RLS mandatory, secrets management, Google OAuth
+  via Supabase, no service role key on client. Adapted from apk_ruler 94-security + 90-authentication.
+globs:
+alwaysApply: true
+---
+
+# 03 — Security: Mandatory Rules
+
+## 🔒 The Non-Negotiables
+1. **Supabase RLS is MANDATORY on every table** — no exceptions
+2. **Service role key NEVER goes to client** — not even accidentally
+3. **`.env` is NEVER committed** — use `.gitignore` and Cloudflare env vars
+4. **Google OAuth is handled by Supabase Auth** — no custom JWT implementation
+5. **All user data access goes through RLS** — no bypassing with service role on client
+
+---
+
+## Supabase RLS Pattern (Every Table)
+
+Every table MUST have RLS enabled and a policy. Never create a table without policies.
+
+```sql
+-- Enable RLS on every table (MANDATORY)
+ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own data
+CREATE POLICY "Users can read own notes"
+ON notes FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own notes"
+ON notes FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own notes"
+ON notes FOR UPDATE
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own notes"
+ON notes FOR DELETE
+USING (auth.uid() = user_id);
+
+-- Public data (e.g., blog posts, public scores)
+CREATE POLICY "Public can read published posts"
+ON posts FOR SELECT
+USING (is_published = true);
+```
+
+> **Rule**: If a table has no policy, Supabase blocks ALL access by default (with RLS on).
+> Never disable RLS on a table. Never use `FOR ALL USING (true)` on user data tables.
+
+---
+
+## Secrets Management
+
+### ✅ Safe
+```bash
+# .env (local dev only — in .gitignore)
+PUBLIC_SUPABASE_URL=https://xyz.supabase.co
+PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...  # Safe for client
+```
+
+### ❌ NEVER Do This
+```typescript
+// NEVER — service role key in client code
+const supabase = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+// NEVER — hardcoded keys in source
+const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+
+// NEVER — commit .env file
+git add .env  // ← BLOCKED by .gitignore
+```
+
+### Cloudflare Pages Environment Variables
+- Store `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` in Cloudflare Pages → Settings → Environment variables
+- NEVER store secrets that should be private (service role key) in Cloudflare env vars for client-side code
+- If a server-side Astro endpoint needs service role → use Cloudflare Pages Functions with secret env var (NOT prefixed `PUBLIC_`)
+
+---
+
+## Google OAuth via Supabase Auth
+
+```typescript
+// src/lib/auth.ts — Google login (client-side)
+import { supabase } from './supabase';
+
+export async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/profile`,
+    },
+  });
+  if (error) console.error('Auth error:', error.message);
+}
+
+export async function signOut() {
+  await supabase.auth.signOut();
+}
+
+export async function getSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+}
+```
+
+> **No custom JWT.** No manual token refresh. Supabase handles all of this.
+> Configure Google OAuth provider in Supabase Dashboard → Authentication → Providers.
+> Add your domain to Supabase → Authentication → URL Configuration → Redirect URLs.
+
+---
+
+## Astro Auth Middleware (SSR Pages Only)
+```typescript
+// src/middleware.ts — protect SSR routes
+import { defineMiddleware } from 'astro:middleware';
+import { createServerClient } from '@supabase/ssr';
+
+export const onRequest = defineMiddleware(async (context, next) => {
+  const { cookies, redirect, url } = context;
+
+  // Protected routes
+  const protectedPaths = ['/profile', '/notes', '/bookmarks'];
+  const isProtected = protectedPaths.some(p => url.pathname.startsWith(p));
+
+  if (isProtected) {
+    const supabase = createServerClient(
+      import.meta.env.PUBLIC_SUPABASE_URL,
+      import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+      { cookies: { /* cookie adapter */ } }
+    );
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return redirect('/');
+  }
+
+  return next();
+});
+```
+
+---
+
+## Input Validation Rules
+- Never trust client-supplied `user_id` — always use `auth.uid()` from RLS
+- Validate all user inputs before inserting to Supabase (length, type, format)
+- Sanitize text inputs displayed as HTML (prevent XSS)
+- Game scores: validate on insert with RLS — users can only insert their own scores
+
+```typescript
+// ✅ Correct — user_id comes from auth, not request body
+const { error } = await supabase
+  .from('bookmarks')
+  .insert({ url: validatedUrl, title: sanitizedTitle });
+  // RLS uses auth.uid() — no need to pass user_id manually
+
+// ❌ Wrong — trusting client-provided user_id
+const { error } = await supabase
+  .from('bookmarks')
+  .insert({ url, user_id: requestBody.userId }); // ← Spoofable
+```
+
+---
+
+## .gitignore Mandatory Entries
+```gitignore
+# Secrets — NEVER commit
+.env
+.env.local
+.env.production
+
+# Build output — not needed in repo
+dist/
+.astro/
+node_modules/
+
+# AI memory — not needed in repo
+# aimd/ ← Keep in repo for AI context across sessions
+```
+
+> **Keep `aimd/` in repo** so AI has memory across different machines/sessions.
+> Keep `.env.example` in repo — it shows required keys without real values.

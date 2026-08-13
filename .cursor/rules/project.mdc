@@ -1,0 +1,61 @@
+---
+description: >
+  MASTER PROJECT MANIFEST — Always loaded. Defines project identity, stack,
+  and references all sub-rules. Read this first every session.
+globs:
+alwaysApply: true
+---
+
+# Personal Website — $0-Cost Project Rules
+
+## Project Identity
+- **Name**: Personal Website (free_website)
+- **Goal**: $0/month personal site — no paid services, ever
+- **Domain**: Hostinger (already owned)
+- **Repo**: GitHub
+- **Hosting**: Cloudflare Pages (free tier)
+
+## Tech Stack
+| Layer | Technology |
+|---|---|
+| Framework | Astro (latest stable) |
+| Language | TypeScript (strict mode) |
+| Styling | Tailwind CSS v3 |
+| Database + Auth | Supabase (free tier) |
+| CI/CD | GitHub → Cloudflare Pages |
+| Domain | Hostinger DNS → Cloudflare Pages |
+
+## Features in Scope
+- Blog (markdown-based, static generation)
+- Notes (personal notes, Supabase DB)
+- Small browser games (client-side only, scores in Supabase)
+- Projects showcase
+- Google login (via Supabase Auth)
+- User profiles
+- Bookmarks / reading progress
+- Game scores / leaderboard
+- Future monetization hooks (no paid infra added until needed)
+
+## 🔴 ABSOLUTE RULES — Never Violate
+1. **$0/month constraint** — see `01-zero-cost-guard.mdc`
+2. **Supabase RLS is mandatory** on every table — see `03-security.mdc`
+3. **Never expose secrets** — `.env` never committed, use Cloudflare env vars
+4. **Mobile-first** — all UI starts at 320px wide, scales up
+5. **No unnecessary dependencies** — check `package.json` before adding any package
+6. **Ask before adding any service** — verify free tier, document limits
+
+## Sub-Rules (Loaded by Context)
+- `@00-ai-behavior.mdc` — Anti-hallucination, ask-first protocol
+- `@01-zero-cost-guard.mdc` — $0 cost enforcement gate
+- `@02-tech-stack.mdc` — Stack patterns and conventions
+- `@03-security.mdc` — RLS, secrets, auth rules
+- `@10-astro-patterns.mdc` — Astro component and routing rules
+- `@11-typescript-strict.mdc` — TypeScript strict patterns
+- `@12-feature-rules.mdc` — Per-feature implementation rules
+
+## AI Session Start Checklist
+- [ ] Read `aimd/PROJECT_STATUS.md` — what features are pending/done
+- [ ] Read `aimd/AI_THINKING_CACHE.md` — prior decisions and reasoning
+- [ ] Read `aimd/DECISIONS.md` — why key choices were made
+- [ ] Identify which feature/file is being worked on this session
+- [ ] Confirm it does not introduce any cost

@@ -1,0 +1,227 @@
+---
+description: >
+  TypeScript strict patterns for Astro + Supabase — shared types, database types,
+  no-any policy, environment type safety. Apply when working on .ts files.
+  Adapted from apk_ruler 82-typescript, rewritten for Astro/Supabase.
+globs: ["**/*.ts", "**/*.tsx", "tsconfig.json"]
+alwaysApply: false
+---
+
+# 11 — TypeScript: Strict Patterns
+
+## tsconfig.json (Mandatory Settings)
+```json
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  }
+}
+```
+
+---
+
+## Shared Types (`src/types/index.ts`)
+
+```typescript
+// src/types/index.ts — Single source of truth for all types
+
+// Blog
+export interface BlogPost {
+  slug: string;
+  title: string;
+  description: string;
+  publishedAt: Date;
+  updatedAt?: Date;
+  tags: string[];
+  draft: boolean;
+  content?: string;
+}
+
+// User profile (mirrors Supabase `profiles` table)
+export interface Profile {
+  id: string;           // UUID — matches auth.uid()
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  bio?: string;
+  createdAt: string;    // ISO date string from Supabase
+}
+
+// Game score (mirrors Supabase `game_scores` table)
+export interface GameScore {
+  id: string;
+  userId: string;
+  gameSlug: string;
+  score: number;
+  achievedAt: string;
+}
+
+// Bookmark (mirrors Supabase `bookmarks` table)
+export interface Bookmark {
+  id: string;
+  userId: string;
+  url: string;
+  title: string;
+  notes?: string;
+  tags: string[];
+  createdAt: string;
+}
+
+// Auth state
+export type AuthState =
+  | { status: 'loading' }
+  | { status: 'authenticated'; userId: string; email: string }
+  | { status: 'unauthenticated' };
+
+// API response wrapper
+export interface ApiResponse<T> {
+  data: T | null;
+  error: string | null;
+}
+```
+
+---
+
+## Supabase Database Types (Auto-Generated)
+
+Generate types from your Supabase schema — never write them manually:
+
+```bash
+# Run this when schema changes (not every session)
+npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/database.types.ts
+```
+
+```typescript
+// src/lib/supabase.ts — use generated Database type
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../types/database.types';
+
+export const supabase = createClient<Database>(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+
+// Now all queries are fully type-safe:
+// supabase.from('profiles').select('*')  ← TypeScript knows the shape
+```
+
+---
+
+## Supabase Query Patterns
+
+```typescript
+// src/lib/queries/scores.ts
+
+import { supabase } from '../supabase';
+import type { GameScore, ApiResponse } from '../../types';
+
+// ✅ Correct — typed, error-handled, no any
+export async function getTopScores(gameSlug: string, limit = 10): Promise<ApiResponse<GameScore[]>> {
+  const { data, error } = await supabase
+    .from('game_scores')
+    .select('id, user_id, game_slug, score, achieved_at')
+    .eq('game_slug', gameSlug)
+    .order('score', { ascending: false })
+    .limit(limit);
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as GameScore[], error: null };
+}
+
+export async function insertScore(gameSlug: string, score: number): Promise<ApiResponse<null>> {
+  const { error } = await supabase
+    .from('game_scores')
+    .insert({ game_slug: gameSlug, score });
+    // user_id set by RLS via auth.uid() — never passed from client
+
+  if (error) return { data: null, error: error.message };
+  return { data: null, error: null };
+}
+```
+
+---
+
+## Environment Variable Types (Astro-Specific)
+
+```typescript
+// src/env.d.ts — extend Astro's type system
+/// <reference types="astro/client" />
+
+interface ImportMetaEnv {
+  readonly PUBLIC_SUPABASE_URL: string;
+  readonly PUBLIC_SUPABASE_ANON_KEY: string;
+  // Add new PUBLIC_ vars here as you add them to .env
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+```
+
+---
+
+## Utility Types (Use These Patterns)
+
+```typescript
+// Partial update — don't pass fields you don't want to update
+type UpdateProfile = Partial<Pick<Profile, 'displayName' | 'bio' | 'avatarUrl'>>;
+
+// Read-only collections — prevent accidental mutation
+type ScoreList = Readonly<GameScore[]>;
+
+// Discriminated union for async state
+type AsyncState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; message: string };
+
+// Use for any Supabase-fetched data in components
+```
+
+---
+
+## No-Any Policy
+
+```typescript
+// ❌ Wrong — any breaks type safety
+const data: any = await fetchProfile();
+data.anything; // No error — completely unsafe
+
+// ✅ Correct — use unknown and narrow
+const result: unknown = await fetchProfile();
+if (isProfile(result)) {
+  result.displayName; // Safe — TypeScript confirmed the shape
+}
+
+// ✅ Correct — use generated Supabase types
+const { data } = await supabase.from('profiles').select('*').single();
+// data is fully typed — no any needed
+```
+
+---
+
+## Astro Frontmatter TypeScript Rules
+- Frontmatter runs at build/request time — no browser APIs (`window`, `document`)
+- Use `Astro.props` with typed interface — always define `interface Props`
+- Use `Astro.url`, `Astro.site`, `Astro.locals` — all are typed
+- For client-side code, use `<script>` tags in template or `client:*` islands
+
+```astro
+---
+// ✅ Correct frontmatter
+interface Props {
+  title: string;
+  count?: number;
+}
+const { title, count = 0 } = Astro.props; // Fully typed
+
+// ❌ Wrong — browser API in frontmatter
+const path = window.location.pathname; // ReferenceError at build time
+---
+```

@@ -1,0 +1,283 @@
+---
+// src/pages/notes/[id].astro
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const { id } = Astro.params;
+---
+
+<BaseLayout title="Workspace Note" description="Write, preview, and synchronize your cloud-saved notes in real-time.">
+  
+  <!-- Loading View -->
+  <div id="loadingView" class="max-w-3xl mx-auto flex items-center justify-center min-h-[50vh]">
+    <div class="flex flex-col items-center space-y-4">
+      <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      <p class="text-xs text-slate-500 font-mono">Syncing Note Data...</p>
+    </div>
+  </div>
+
+  <!-- Note Editor view (hidden by default) -->
+  <div id="editorView" class="max-w-3xl mx-auto hidden space-y-6">
+    <!-- Editor Header -->
+    <div class="flex items-center justify-between border-b border-slate-900 pb-4">
+      <a href="/notes" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1">
+        &larr; Workspace Dashboard
+      </a>
+      <!-- Save Sync Status Widget -->
+      <div class="flex items-center gap-2 text-xs font-mono">
+        <span id="syncIndicatorDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span id="syncIndicatorText" class="text-slate-500">All changes saved</span>
+      </div>
+    </div>
+
+    <!-- Edit Form Elements -->
+    <div class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <input id="noteTitle" class="w-full sm:flex-1 bg-transparent border-0 border-b border-transparent focus:border-slate-800 text-2xl font-display font-extrabold text-slate-100 focus:outline-none py-1 transition-colors" type="text" placeholder="Untitled Note" />
+        
+        <!-- Public Toggle -->
+        <div class="flex items-center gap-2.5 shrink-0 bg-slate-950/40 border border-slate-900 rounded-xl px-4 py-2">
+          <label for="noteVisibility" class="text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer">Public Share Link</label>
+          <input id="noteVisibility" type="checkbox" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer" />
+        </div>
+      </div>
+
+      <!-- Content Area -->
+      <textarea id="noteContent" class="w-full h-[50vh] bg-slate-950/20 border border-slate-900 focus:border-slate-800 rounded-2xl p-5 text-slate-300 text-sm focus:outline-none font-sans leading-relaxed resize-none" placeholder="Start typing your notes here (markdown-friendly)..."></textarea>
+    </div>
+
+    <!-- Public Sharing Info Box (hidden by default) -->
+    <div id="sharingInfoBox" class="hidden p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+      <div class="min-w-0">
+        <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Note is Publicly Shared</h4>
+        <p id="shareUrl" class="text-xs text-slate-400 font-mono truncate select-all">Loading link...</p>
+      </div>
+      <button id="copyShareBtn" class="shrink-0 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-slate-100 text-xs font-bold rounded-lg transition-colors cursor-pointer">
+        Copy Link
+      </button>
+    </div>
+  </div>
+
+  <!-- Read-Only Viewer layout (for public notes viewed by guests) -->
+  <div id="readOnlyView" class="max-w-2xl mx-auto hidden space-y-6 animate-fade-in">
+    <div class="border-b border-slate-900 pb-4">
+      <a href="/" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors">
+        &larr; Back to The RISIING
+      </a>
+    </div>
+    <div class="space-y-4">
+      <div class="flex items-center gap-3">
+        <h1 id="viewTitle" class="text-3xl font-display font-extrabold text-slate-100 tracking-tight">Untitled Note</h1>
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-500/20 bg-emerald-500/5 text-emerald-400">Shared Note</span>
+      </div>
+      <p class="text-[10px] text-slate-500 font-mono" id="viewMeta">Published by loading_user</p>
+      <div id="viewContent" class="p-6 rounded-2xl border border-slate-900 bg-slate-950/20 text-slate-300 text-sm leading-relaxed whitespace-pre-wrap min-h-[30vh]">
+        Loading note content...
+      </div>
+    </div>
+  </div>
+
+  <!-- Error view (hidden by default) -->
+  <div id="errorView" class="max-w-md mx-auto hidden text-center py-12">
+    <span class="text-4xl block mb-4">🔒</span>
+    <h2 class="text-slate-200 font-display font-bold text-lg mb-1">Access Restrained</h2>
+    <p class="text-xs text-slate-500 mb-6">
+      This note is private or you do not have permissions to view it. Please check your credentials.
+    </p>
+    <a href="/notes" class="px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-slate-100 text-xs font-semibold rounded-xl transition-colors">
+      Return to Dashboard
+    </a>
+  </div>
+
+  <script define:vars={{ id }}>
+    import { supabase } from '../../lib/supabase';
+
+    const loadingView = document.getElementById('loadingView');
+    const editorView = document.getElementById('editorView');
+    const readOnlyView = document.getElementById('readOnlyView');
+    const errorView = document.getElementById('errorView');
+
+    // Editor Form Targets
+    const noteTitle = document.getElementById('noteTitle');
+    const noteContent = document.getElementById('noteContent');
+    const noteVisibility = document.getElementById('noteVisibility');
+    
+    // Indicator Elements
+    const syncDot = document.getElementById('syncIndicatorDot');
+    const syncText = document.getElementById('syncIndicatorText');
+    const sharingInfoBox = document.getElementById('sharingInfoBox');
+    const shareUrl = document.getElementById('shareUrl');
+    const copyShareBtn = document.getElementById('copyShareBtn');
+
+    // Read Only Targets
+    const viewTitle = document.getElementById('viewTitle');
+    const viewMeta = document.getElementById('viewMeta');
+    const viewContent = document.getElementById('viewContent');
+
+    let saveTimeout = null;
+    let originalData = { title: '', content: '', is_public: false };
+
+    async function loadNote() {
+      // 1. Get current auth session state
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || null;
+
+      // 2. Fetch specific Note details
+      const { data: note, error } = await supabase
+        .from('notes')
+        .select('title, content, is_public, user_id, created_at, profiles(username)')
+        .eq('id', id)
+        .single();
+
+      if (error || !note) {
+        console.error('Note load error:', error?.message);
+        showLayout(errorView);
+        return;
+      }
+
+      originalData = { 
+        title: note.title, 
+        content: note.content || '', 
+        is_public: note.is_public 
+      };
+
+      // 3. Auth Access Checks
+      if (currentUserId && note.user_id === currentUserId) {
+        // OWNER -> Load full Markdown Editor
+        showLayout(editorView);
+        populateEditor(note);
+      } else if (note.is_public) {
+        // GUEST -> Load clean read-only formatting
+        showLayout(readOnlyView);
+        populateReadOnly(note);
+      } else {
+        // PRIVATE BLOCK -> Access Forbidden
+        showLayout(errorView);
+      }
+    }
+
+    function showLayout(targetView) {
+      if (loadingView) loadingView.classList.add('hidden');
+      if (editorView) editorView.classList.add('hidden');
+      if (readOnlyView) readOnlyView.classList.add('hidden');
+      if (errorView) errorView.classList.add('hidden');
+
+      if (targetView) targetView.classList.remove('hidden');
+    }
+
+    function populateEditor(note) {
+      if (noteTitle) noteTitle.value = note.title;
+      if (noteContent) noteContent.value = note.content || '';
+      if (noteVisibility) {
+        noteVisibility.checked = note.is_public;
+        toggleSharingDetails(note.is_public);
+      }
+
+      // Bind input change triggers
+      [noteTitle, noteContent].forEach(el => {
+        el?.addEventListener('input', triggerAutoSave);
+      });
+
+      noteVisibility?.addEventListener('change', (e) => {
+        const checked = e.target.checked;
+        toggleSharingDetails(checked);
+        triggerAutoSave();
+      });
+    }
+
+    function populateReadOnly(note) {
+      if (viewTitle) viewTitle.textContent = note.title;
+      if (viewMeta) {
+        const username = note.profiles?.username || 'user';
+        const date = new Date(note.created_at).toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric'
+        });
+        viewMeta.textContent = `Published by @${username} on ${date}`;
+      }
+      if (viewContent) viewContent.textContent = note.content || 'Note has no content.';
+    }
+
+    function toggleSharingDetails(isPublic) {
+      if (!sharingInfoBox || !shareUrl) return;
+
+      if (isPublic) {
+        sharingInfoBox.classList.remove('hidden');
+        const link = `${window.location.origin}/notes/${id}`;
+        shareUrl.textContent = link;
+      } else {
+        sharingInfoBox.classList.add('hidden');
+      }
+    }
+
+    // Debounced Auto Save Pattern
+    function triggerAutoSave() {
+      // Set indicators to unsaved state
+      updateSyncStatus('unsaved');
+
+      if (saveTimeout) clearTimeout(saveTimeout);
+
+      saveTimeout = setTimeout(async () => {
+        updateSyncStatus('saving');
+
+        const title = noteTitle.value.trim() || 'Untitled Note';
+        const content = noteContent.value;
+        const is_public = noteVisibility.checked;
+
+        // Skip update if no edits actually occurred
+        if (title === originalData.title && content === originalData.content && is_public === originalData.is_public) {
+          updateSyncStatus('saved');
+          return;
+        }
+
+        const { error } = await supabase
+          .from('notes')
+          .update({ title, content, is_public, updated_at: new Date().toISOString() })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Auto-save failed:', error.message);
+          updateSyncStatus('error');
+        } else {
+          originalData = { title, content, is_public };
+          updateSyncStatus('saved');
+        }
+      }, 700); // 700ms debounce threshold
+    }
+
+    function updateSyncStatus(status) {
+      if (!syncDot || !syncText) return;
+
+      if (status === 'unsaved') {
+        syncDot.className = 'w-2 h-2 rounded-full bg-amber-500';
+        syncText.textContent = 'Unsaved changes';
+      } else if (status === 'saving') {
+        syncDot.className = 'w-2 h-2 rounded-full bg-indigo-400 animate-pulse';
+        syncText.textContent = 'Saving changes...';
+      } else if (status === 'saved') {
+        syncDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+        syncText.textContent = 'All changes saved';
+      } else if (status === 'error') {
+        syncDot.className = 'w-2 h-2 rounded-full bg-red-500';
+        syncText.textContent = 'Auto-save failed';
+      }
+    }
+
+    // Clipboard share link copier
+    copyShareBtn?.addEventListener('click', () => {
+      const link = shareUrl?.textContent;
+      if (!link) return;
+
+      navigator.clipboard.writeText(link).then(() => {
+        copyShareBtn.textContent = 'Copied!';
+        copyShareBtn.classList.replace('bg-indigo-600', 'bg-emerald-600');
+        setTimeout(() => {
+          copyShareBtn.textContent = 'Copy Link';
+          copyShareBtn.classList.replace('bg-emerald-600', 'bg-indigo-600');
+        }, 1500);
+      });
+    });
+
+    loadNote();
+  </script>
+</BaseLayout>

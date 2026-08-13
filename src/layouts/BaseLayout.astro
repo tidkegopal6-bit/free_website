@@ -1,0 +1,499 @@
+---
+// src/layouts/BaseLayout.astro
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+  canonical?: string;
+}
+
+const {
+  title,
+  description,
+  ogImage = '/og-default.png',
+  canonical = Astro.url?.href || '',
+} = Astro.props;
+
+const siteName = "The RISIING";
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- SEO -->
+    <title>{title} | {siteName}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:type" content="website" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Theme Initializer (Anti-flash blocking script) -->
+    <script is:inline>
+      const savedTheme = localStorage.getItem('siteTheme') || 'slate-dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200 antialiased overflow-x-hidden">
+    <!-- Glow Background Effects -->
+    <div class="fixed top-0 left-0 right-0 -z-10 flex justify-center pointer-events-none">
+      <div class="w-[800px] h-[350px] bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 blur-[120px] rounded-full transform -translate-y-48"></div>
+    </div>
+    
+    <header class="sticky top-0 z-50 backdrop-blur-md bg-slate-950/70 border-b border-slate-900 transition-all duration-300">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <a href="/" class="flex items-center space-x-2 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 font-display font-bold text-xl tracking-tight hover:opacity-95 transition-opacity">
+          <span>The RISIING</span>
+        </a>
+        <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-400">
+          <a href="/blog" class="hover:text-slate-100 transition-colors">Blog</a>
+          <a href="/notes" class="hover:text-slate-100 transition-colors">Notes</a>
+          <a href="/bookmarks" class="hover:text-slate-100 transition-colors">Bookmarks</a>
+          <a href="/games" class="hover:text-slate-100 transition-colors">Games</a>
+          <a href="/projects" class="hover:text-slate-100 transition-colors">Projects</a>
+        </nav>
+        <div class="flex items-center space-x-4">
+          <!-- Global Theme Selector -->
+          <div class="flex items-center bg-slate-900/60 border border-slate-800 p-0.5 rounded-lg text-[10px]">
+            <select id="siteThemeSelector" class="bg-transparent border-0 text-slate-350 focus:outline-none font-semibold px-2 py-1 cursor-pointer">
+              <option value="slate-dark" class="bg-slate-950 text-slate-300">Slate Dark</option>
+              <option value="warm-sepi" class="bg-[#f4ecd8] text-[#433422]">EyeCare Sepia</option>
+              <option value="dim-blue" class="bg-[#15202b] text-slate-100">Midnight Dim</option>
+              <option value="warm-dark" class="bg-[#120e0a] text-[#e8dcc4]">Amber Warm</option>
+              <option value="classic-light" class="bg-white text-slate-900">Classic Light</option>
+            </select>
+          </div>
+          
+          <a href="/login" id="loginBtn" class="px-4 py-1.5 text-xs font-semibold text-slate-200 hover:text-slate-100 bg-slate-900 border border-slate-800 rounded-lg hover:bg-slate-800/80 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-indigo-500/10">
+            Login
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+      <slot />
+    </main>
+
+    <footer class="border-t border-slate-900 bg-slate-950/40 mt-auto py-12">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-slate-500">
+        <p>&copy; {new Date().getFullYear()} The RISIING. All rights reserved.</p>
+        <p class="flex items-center gap-1.5">
+          Built for <span class="text-indigo-400 font-semibold">$0/month</span> using free tiers
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      import { supabase } from '../lib/supabase';
+
+      const loginBtn = document.getElementById('loginBtn') as HTMLAnchorElement;
+      const siteThemeSelector = document.getElementById('siteThemeSelector') as HTMLSelectElement;
+
+      // Sync selector option to active state
+      if (siteThemeSelector) {
+        siteThemeSelector.value = document.documentElement.getAttribute('data-theme') || 'slate-dark';
+        siteThemeSelector.addEventListener('change', (e) => {
+          const target = e.target as HTMLSelectElement;
+          document.documentElement.setAttribute('data-theme', target.value);
+          localStorage.setItem('siteTheme', target.value);
+        });
+      }
+
+      async function updateNavAuthStatus() {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && loginBtn) {
+          loginBtn.textContent = 'Profile';
+          loginBtn.href = '/profile';
+        }
+      }
+
+      updateNavAuthStatus();
+
+      // Listen for auth changes globally to keep tabs in sync
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (loginBtn) {
+          if (session) {
+            loginBtn.textContent = 'Profile';
+            loginBtn.href = '/profile';
+          } else {
+            loginBtn.textContent = 'Login';
+            loginBtn.href = '/login';
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  /* ============================
+     GLOBAL THEME CSS VARIABLES
+     ============================ */
+  :root {
+    /* Dark Slate (default) */
+    --theme-bg: #020617;
+    --theme-surface: rgba(15, 23, 42, 0.6);
+    --theme-surface-solid: #0f172a;
+    --theme-text: #f1f5f9;
+    --theme-text-secondary: #cbd5e1;
+    --theme-text-muted: #64748b;
+    --theme-border: #1e293b;
+    --theme-header-bg: rgba(2, 6, 23, 0.75);
+    --theme-header-border: #1e293b;
+    --theme-btn-bg: #0f172a;
+    --theme-btn-border: #334155;
+    --theme-btn-text: #cbd5e1;
+    --theme-btn-hover-bg: #1e293b;
+    --theme-btn-hover-text: #f1f5f9;
+    --theme-nav-text: #94a3b8;
+    --theme-nav-hover: #f1f5f9;
+    --theme-input-bg: #0f172a;
+    --theme-input-text: #e2e8f0;
+    --theme-input-border: #334155;
+    --theme-active-bg: rgba(99, 102, 241, 0.2);
+    --theme-active-border: rgba(99, 102, 241, 0.45);
+    --theme-active-text: #818cf8;
+    --theme-page-heading: #f8fafc;
+    --theme-surface-alt: #0f172a;
+    --theme-surface-alt-text: #cbd5e1;
+    --theme-surface-alt-border: #334155;
+  }
+
+  html[data-theme="warm-sepi"] {
+    /* Warm Sepia – eye-friendly warm parchment */
+    --theme-bg: #f5ead4;
+    --theme-surface: rgba(238, 225, 198, 0.75);
+    --theme-surface-solid: #eedfc0;
+    --theme-text: #2d1f0e;
+    --theme-text-secondary: #4a3521;
+    --theme-text-muted: #7c6347;
+    --theme-border: #cbb98d;
+    --theme-header-bg: rgba(245, 234, 212, 0.92);
+    --theme-header-border: #cbb98d;
+    --theme-btn-bg: #e8d8b2;
+    --theme-btn-border: #b8a07a;
+    --theme-btn-text: #2d1f0e;
+    --theme-btn-hover-bg: #deca9c;
+    --theme-btn-hover-text: #1a0f00;
+    --theme-nav-text: #7c6347;
+    --theme-nav-hover: #5c3d1e;
+    --theme-input-bg: #f0e4c8;
+    --theme-input-text: #2d1f0e;
+    --theme-input-border: #b8a07a;
+    --theme-active-bg: rgba(139, 90, 43, 0.15);
+    --theme-active-border: rgba(139, 90, 43, 0.4);
+    --theme-active-text: #7c4a1e;
+    --theme-page-heading: #1a0f00;
+    --theme-surface-alt: #e4d4af;
+    --theme-surface-alt-text: #3a2714;
+    --theme-surface-alt-border: #c4a87a;
+  }
+
+  html[data-theme="dim-blue"] {
+    /* Midnight Dim – soft Twitter-dim-style dark blue */
+    --theme-bg: #15202b;
+    --theme-surface: rgba(30, 49, 68, 0.6);
+    --theme-surface-solid: #1e3144;
+    --theme-text: #e7ecf0;
+    --theme-text-secondary: #c4cdd6;
+    --theme-text-muted: #7a8d9e;
+    --theme-border: #2f4255;
+    --theme-header-bg: rgba(21, 32, 43, 0.88);
+    --theme-header-border: #2f4255;
+    --theme-btn-bg: #1e3144;
+    --theme-btn-border: #2f4255;
+    --theme-btn-text: #c4cdd6;
+    --theme-btn-hover-bg: #264357;
+    --theme-btn-hover-text: #e7ecf0;
+    --theme-nav-text: #7a8d9e;
+    --theme-nav-hover: #49a5f7;
+    --theme-input-bg: #1a2d3e;
+    --theme-input-text: #e7ecf0;
+    --theme-input-border: #2f4255;
+    --theme-active-bg: rgba(29, 161, 242, 0.2);
+    --theme-active-border: rgba(29, 161, 242, 0.45);
+    --theme-active-text: #49a5f7;
+    --theme-page-heading: #ffffff;
+    --theme-surface-alt: #1a2d3e;
+    --theme-surface-alt-text: #c4cdd6;
+    --theme-surface-alt-border: #2f4255;
+  }
+
+  html[data-theme="warm-dark"] {
+    /* Amber Warm – deep warm charcoal with amber tones */
+    --theme-bg: #110c08;
+    --theme-surface: rgba(30, 22, 14, 0.6);
+    --theme-surface-solid: #1e160e;
+    --theme-text: #e8dbc6;
+    --theme-text-secondary: #c9b99a;
+    --theme-text-muted: #8c7558;
+    --theme-border: #2e2016;
+    --theme-header-bg: rgba(17, 12, 8, 0.88);
+    --theme-header-border: #2e2016;
+    --theme-btn-bg: #1e160e;
+    --theme-btn-border: #3d2e1e;
+    --theme-btn-text: #c9b99a;
+    --theme-btn-hover-bg: #2a1e12;
+    --theme-btn-hover-text: #e8dbc6;
+    --theme-nav-text: #8c7558;
+    --theme-nav-hover: #f0a030;
+    --theme-input-bg: #1a1209;
+    --theme-input-text: #e8dbc6;
+    --theme-input-border: #3d2e1e;
+    --theme-active-bg: rgba(240, 160, 48, 0.15);
+    --theme-active-border: rgba(240, 160, 48, 0.4);
+    --theme-active-text: #f0a030;
+    --theme-page-heading: #fdf3e3;
+    --theme-surface-alt: #1e160e;
+    --theme-surface-alt-text: #c9b99a;
+    --theme-surface-alt-border: #3d2e1e;
+  }
+
+  html[data-theme="classic-light"] {
+    /* Classic Light – clean white with slate text */
+    --theme-bg: #f8fafc;
+    --theme-surface: rgba(255, 255, 255, 0.85);
+    --theme-surface-solid: #ffffff;
+    --theme-text: #0f172a;
+    --theme-text-secondary: #334155;
+    --theme-text-muted: #64748b;
+    --theme-border: #e2e8f0;
+    --theme-header-bg: rgba(248, 250, 252, 0.88);
+    --theme-header-border: #e2e8f0;
+    --theme-btn-bg: #ffffff;
+    --theme-btn-border: #cbd5e1;
+    --theme-btn-text: #334155;
+    --theme-btn-hover-bg: #f1f5f9;
+    --theme-btn-hover-text: #0f172a;
+    --theme-nav-text: #475569;
+    --theme-nav-hover: #4f46e5;
+    --theme-input-bg: #ffffff;
+    --theme-input-text: #0f172a;
+    --theme-input-border: #cbd5e1;
+    --theme-active-bg: rgba(79, 70, 229, 0.08);
+    --theme-active-border: rgba(79, 70, 229, 0.3);
+    --theme-active-text: #4f46e5;
+    --theme-page-heading: #0f172a;
+    --theme-surface-alt: #f1f5f9;
+    --theme-surface-alt-text: #334155;
+    --theme-surface-alt-border: #cbd5e1;
+  }
+
+  /* ============================
+     STRUCTURAL THEME OVERRIDES
+     (Only bg, border, structural text — never colored accents)
+     ============================ */
+
+  /* Page background */
+  body {
+    background-color: var(--theme-bg) !important;
+    color: var(--theme-text) !important;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  /* Header + Footer */
+  header {
+    background-color: var(--theme-header-bg) !important;
+    border-color: var(--theme-header-border) !important;
+  }
+  footer {
+    background-color: var(--theme-header-bg) !important;
+    border-color: var(--theme-header-border) !important;
+  }
+
+  /* Nav links */
+  nav a {
+    color: var(--theme-nav-text) !important;
+    transition: color 0.2s ease;
+  }
+  nav a:hover {
+    color: var(--theme-nav-hover) !important;
+  }
+
+  /* ---- CARD SURFACES ---- */
+  /* Only override the structural slate backgrounds, not color-tinted ones */
+  .bg-slate-950\/40,
+  .bg-slate-950\/30,
+  .bg-slate-950\/20,
+  .bg-slate-950\/50,
+  .bg-slate-950\/60,
+  .bg-slate-950\/70,
+  .bg-slate-950\/90,
+  .bg-slate-950 {
+    background-color: var(--theme-surface) !important;
+  }
+  /* Solid dark surface (bg-slate-900 / bg-slate-900 partial): inline badges, code pills, secondary panels */
+  .bg-slate-900,
+  .bg-slate-900\/60,
+  .bg-slate-900\/50,
+  .bg-slate-900\/40 {
+    background-color: var(--theme-surface-alt) !important;
+    color: var(--theme-surface-alt-text) !important;
+    border-color: var(--theme-surface-alt-border) !important;
+  }
+
+  /* ---- NEUTRAL BORDERS ---- */
+  .border-slate-900,
+  .border-slate-800 {
+    border-color: var(--theme-border) !important;
+  }
+
+  /* ---- TEXT: Neutral grey structural labels ---- */
+  .text-slate-500 {
+    color: var(--theme-text-muted) !important;
+  }
+  .text-slate-400 {
+    color: var(--theme-text-secondary) !important;
+  }
+  .text-slate-100,
+  .text-slate-200 {
+    color: var(--theme-page-heading) !important;
+  }
+  .text-slate-300 {
+    color: var(--theme-text) !important;
+  }
+
+  /* ---- bg-slate-900 ELEMENT TEXT OVERRIDE ----
+     Elements that USE bg-slate-900 as their own bg get surface-alt-text.
+     Must come AFTER the text-class rules above to win in the cascade. */
+  .bg-slate-900,
+  .bg-slate-900 * {
+    color: var(--theme-surface-alt-text) !important;
+  }
+  /* Preserve colored accent text inside bg-slate-900 containers
+     (e.g. indigo, emerald, rose, amber badges inside panels) */
+  .bg-slate-900 .text-indigo-400,
+  .bg-slate-900 .text-emerald-400,
+  .bg-slate-900 .text-rose-400,
+  .bg-slate-900 .text-amber-400,
+  .bg-slate-900 .text-blue-400,
+  .bg-slate-900 .text-purple-400,
+  .bg-slate-900 .text-teal-400,
+  .bg-slate-900 .text-sky-400,
+  .bg-slate-900 .text-orange-400,
+  .bg-slate-900 .text-cyan-400,
+  .bg-slate-900 .text-violet-400 {
+    color: inherit !important;
+  }
+
+  /* ---- BUTTONS: Only structural/neutral buttons ---- */
+  /* Login / Profile button in header */
+  #loginBtn {
+    background-color: var(--theme-btn-bg) !important;
+    border-color: var(--theme-btn-border) !important;
+    color: var(--theme-btn-text) !important;
+    transition: all 0.2s ease;
+  }
+  #loginBtn:hover {
+    background-color: var(--theme-btn-hover-bg) !important;
+    color: var(--theme-btn-hover-text) !important;
+  }
+
+  /* Site theme selector pill */
+  #siteThemeSelector {
+    background-color: var(--theme-btn-bg) !important;
+    border-color: var(--theme-btn-border) !important;
+    color: var(--theme-btn-text) !important;
+  }
+
+  /* ---- GAME WRAPPER: Selects + Neutral Buttons only ---- */
+  /* Speed, Theme select dropdowns inside the game */
+  #gameWrapper select {
+    background-color: var(--theme-input-bg) !important;
+    color: var(--theme-input-text) !important;
+    border-color: var(--theme-input-border) !important;
+  }
+  #gameWrapper select option {
+    background-color: var(--theme-input-bg) !important;
+    color: var(--theme-input-text) !important;
+  }
+
+  /* Neutral-styled game buttons (Zen Off, Expand) – those without a specific color class */
+  #zenModeBtn,
+  #fullWindowBtn {
+    background-color: var(--theme-btn-bg) !important;
+    border-color: var(--theme-btn-border) !important;
+    color: var(--theme-btn-text) !important;
+    transition: all 0.2s ease;
+  }
+  #zenModeBtn:hover,
+  #fullWindowBtn:hover {
+    background-color: var(--theme-btn-hover-bg) !important;
+    color: var(--theme-btn-hover-text) !important;
+  }
+
+  /* Control toggle buttons (Keyboard / Touch D-Pad) inactive state */
+  #ctrlKeyboardBtn,
+  #ctrlTouchBtn {
+    transition: all 0.2s ease;
+  }
+  /* Inactive state */
+  #ctrlKeyboardBtn.text-slate-500,
+  #ctrlTouchBtn.text-slate-500 {
+    background-color: var(--theme-btn-bg) !important;
+    color: var(--theme-btn-text) !important;
+    border-color: transparent !important;
+  }
+
+  /* Start Game / Play Again button in overlay uses its own indigo class — DO NOT OVERRIDE */
+
+  /* ---- LIGHT/SEPIA SPECIFIC FIXES ---- */
+  /* In light themes, the dark glow blobs are invisible/white bg — hide them */
+  html[data-theme="warm-sepi"] .-translate-y-48,
+  html[data-theme="classic-light"] .-translate-y-48 {
+    display: none !important;
+  }
+
+  /* In light themes, card gradient overlays that are near-black need text fixes */
+  html[data-theme="warm-sepi"] .bg-gradient-to-br,
+  html[data-theme="classic-light"] .bg-gradient-to-br {
+    border-color: var(--theme-border) !important;
+  }
+
+  /* Ensure overlay splash screens inside game have readable text in light themes */
+  html[data-theme="warm-sepi"] #gameOverlay,
+  html[data-theme="classic-light"] #gameOverlay {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+  }
+
+  /* Footer copyright text */
+  footer p {
+    color: var(--theme-text-muted) !important;
+  }
+
+  /* ============================
+     SMOOTH TRANSITIONS
+     ============================ */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+  }
+  /* But not for animations, transforms etc */
+  .animate-pulse, .animate-spin, .animate-bounce {
+    transition: none !important;
+  }
+</style>
+
+</html>

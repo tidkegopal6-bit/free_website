@@ -1,0 +1,496 @@
+---
+// src/pages/projects.astro
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  longDesc: string;
+  tags: string[];
+  stack: string[];
+  status: 'live' | 'wip' | 'archived';
+  liveUrl?: string;
+  githubUrl?: string;
+  gradient: string;
+  icon: string;
+  accentColor: string;
+  featured: boolean;
+  year: number;
+}
+
+const projects: Project[] = [
+  {
+    id: 'the-risiing',
+    title: 'The RISIING',
+    description: 'This website. A $0/month personal hub featuring a dev blog, smart notes, bookmarks, arcade games, and a global leaderboard — all powered by free tiers.',
+    longDesc: 'Built with Astro v5 for blazing-fast static pages, Tailwind CSS for premium theming, and Supabase for auth, realtime data, and scores. Deployed on Cloudflare Pages. Zero infra costs.',
+    tags: ['Full Stack', 'Personal Hub', 'Games'],
+    stack: ['Astro', 'TypeScript', 'Tailwind CSS', 'Supabase', 'Cloudflare Pages'],
+    status: 'live',
+    liveUrl: 'https://therising.pages.dev',
+    githubUrl: 'https://github.com/therising/free-website',
+    gradient: 'from-indigo-500/15 via-purple-500/10 to-pink-500/10',
+    icon: '🚀',
+    accentColor: 'indigo',
+    featured: true,
+    year: 2026,
+  },
+  {
+    id: 'agromate',
+    title: 'AgroMate',
+    description: 'AI-powered crop health monitor and smart irrigation system for small-scale farmers. Runs on a Raspberry Pi at the edge for offline-first use.',
+    longDesc: 'Uses TensorFlow Lite for on-device image classification of plant diseases, with a React Native app for farmers. Saves 40% more water than traditional drip irrigation via soil moisture sensors and weather API integration.',
+    tags: ['IoT', 'Machine Learning', 'Mobile'],
+    stack: ['Python', 'TensorFlow Lite', 'React Native', 'Raspberry Pi', 'MQTT'],
+    status: 'wip',
+    githubUrl: 'https://github.com/therising/agromate',
+    gradient: 'from-emerald-500/15 via-teal-500/10 to-green-500/10',
+    icon: '🌱',
+    accentColor: 'emerald',
+    featured: true,
+    year: 2025,
+  },
+  {
+    id: 'devnotes-ai',
+    title: 'DevNotes AI',
+    description: 'A local-first Markdown notes workspace with AI-powered search and auto-tagging. Runs entirely in the browser with no backend.',
+    longDesc: 'Built with SolidJS + IndexedDB for zero-latency offline-first writes. Uses the Web AI APIs (experimental) to generate smart tags and surface related notes from your local vault. No data leaves your device.',
+    tags: ['AI', 'Developer Tools', 'Offline First'],
+    stack: ['SolidJS', 'TypeScript', 'IndexedDB', 'WebAssembly', 'Web AI'],
+    status: 'wip',
+    githubUrl: 'https://github.com/therising/devnotes-ai',
+    gradient: 'from-sky-500/15 via-blue-500/10 to-cyan-500/10',
+    icon: '🧠',
+    accentColor: 'sky',
+    featured: false,
+    year: 2025,
+  },
+  {
+    id: 'retro-arcade',
+    title: 'Browser Retro Arcade',
+    description: 'Collection of classic arcade games reimplemented in the browser using the HTML5 Canvas API with global leaderboards. No libraries, raw JavaScript.',
+    longDesc: 'Snake, Tetris, Space Invaders, and Breakout built from scratch using Canvas 2D rendering. Each game supports touch controls, keyboard, and mouse inputs. Scores stored in Supabase with a live global leaderboard.',
+    tags: ['Games', 'Canvas', 'Frontend'],
+    stack: ['HTML5 Canvas', 'Vanilla JS', 'TypeScript', 'Supabase'],
+    status: 'live',
+    liveUrl: '/games',
+    gradient: 'from-rose-500/15 via-orange-500/10 to-amber-500/10',
+    icon: '🕹️',
+    accentColor: 'rose',
+    featured: false,
+    year: 2026,
+  },
+  {
+    id: 'link-radar',
+    title: 'LinkRadar',
+    description: 'A self-hosted bookmark manager that auto-extracts metadata, screenshots, and reading time from any URL. Built as a PWA with offline sync.',
+    longDesc: 'Chrome and Firefox extension captures links with one click. Backend uses Playwright to screenshot pages and Readability.js to extract clean text. Syncs across devices using a simple SQLite + Litestream backend.',
+    tags: ['Developer Tools', 'Browser Extension', 'PWA'],
+    stack: ['Svelte', 'TypeScript', 'SQLite', 'Playwright', 'Litestream', 'Fly.io'],
+    status: 'archived',
+    githubUrl: 'https://github.com/therising/linkradar',
+    gradient: 'from-violet-500/15 via-purple-500/10 to-fuchsia-500/10',
+    icon: '📡',
+    accentColor: 'violet',
+    featured: false,
+    year: 2024,
+  },
+  {
+    id: 'cli-forge',
+    title: 'CLI Forge',
+    description: 'A Rust-based scaffolding CLI that generates production-ready project structures for Node.js, Python, Go, and Astro in seconds.',
+    longDesc: 'Reads a TOML config to define project templates. Supports Git initialization, pre-commit hooks, CI/CD workflows, and auto-populated README.md. Ships as a single binary cross-compiled for macOS, Linux, and Windows.',
+    tags: ['Developer Tools', 'CLI', 'Rust'],
+    stack: ['Rust', 'TOML', 'Clap', 'Cross-compilation'],
+    status: 'live',
+    githubUrl: 'https://github.com/therising/cli-forge',
+    gradient: 'from-orange-500/15 via-amber-500/10 to-yellow-500/10',
+    icon: '⚡',
+    accentColor: 'orange',
+    featured: false,
+    year: 2024,
+  },
+];
+
+const allTags = [...new Set(projects.flatMap(p => p.tags))].sort();
+const featuredProjects = projects.filter(p => p.featured);
+const otherProjects = projects.filter(p => !p.featured);
+
+const stackColors: Record<string, string> = {
+  'Astro': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  'TypeScript': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  'Tailwind CSS': 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+  'Supabase': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  'Cloudflare Pages': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  'Python': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  'TensorFlow Lite': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  'React Native': 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+  'Raspberry Pi': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+  'MQTT': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  'SolidJS': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  'IndexedDB': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+  'WebAssembly': 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+  'Web AI': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+  'HTML5 Canvas': 'bg-red-500/10 text-red-400 border-red-500/20',
+  'Vanilla JS': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  'Svelte': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  'SQLite': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+  'Playwright': 'bg-green-500/10 text-green-400 border-green-500/20',
+  'Litestream': 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+  'Fly.io': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  'Rust': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  'TOML': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+  'Clap': 'bg-red-500/10 text-red-400 border-red-500/20',
+  'Cross-compilation': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+};
+
+const statusConfig: Record<string, { label: string; classes: string; dot: string }> = {
+  live: {
+    label: 'Live',
+    classes: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25',
+    dot: 'bg-emerald-500 animate-pulse',
+  },
+  wip: {
+    label: 'In Progress',
+    classes: 'bg-amber-500/10 text-amber-400 border border-amber-500/25',
+    dot: 'bg-amber-500 animate-pulse',
+  },
+  archived: {
+    label: 'Archived',
+    classes: 'bg-slate-500/10 text-slate-500 border border-slate-700/25',
+    dot: 'bg-slate-600',
+  },
+};
+---
+
+<BaseLayout
+  title="Projects"
+  description="A showcase of my best side projects — from full-stack web apps and IoT systems to developer tools and browser games."
+>
+  <div class="space-y-16">
+    <!-- Hero Header -->
+    <div class="relative overflow-hidden rounded-2xl border border-slate-900 bg-slate-950/40 p-8 sm:p-12">
+      <!-- Background Grid -->
+      <div class="pointer-events-none absolute inset-0 opacity-30" aria-hidden="true">
+        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="pgrid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#334155" stroke-width="0.5"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#pgrid)" />
+        </svg>
+      </div>
+      <!-- Glow blobs -->
+      <div class="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-[80px]"></div>
+      <div class="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-purple-500/10 blur-[80px]"></div>
+
+      <div class="relative z-10 max-w-3xl">
+        <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-indigo-400">
+          <span class="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+          Portfolio
+        </div>
+        <h1 class="font-display text-4xl font-extrabold tracking-tight text-slate-100 sm:text-5xl leading-none">
+          Things I've <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Built</span>
+        </h1>
+        <p class="mt-4 text-slate-400 text-base leading-relaxed max-w-2xl">
+          A curated collection of side projects and experiments — from AI-powered tools and IoT systems to retro browser games and developer utilities. Everything is open-source or explained in detail.
+        </p>
+        <div class="mt-6 flex flex-wrap items-center gap-6 text-[11px] text-slate-500 font-mono">
+          <span class="flex items-center gap-1.5">
+            <span class="font-bold text-slate-300 text-sm">{projects.length}</span> Projects
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            {projects.filter(p => p.status === 'live').length} Live
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+            {projects.filter(p => p.status === 'wip').length} In Progress
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-slate-600"></span>
+            {projects.filter(p => p.status === 'archived').length} Archived
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="flex flex-wrap items-center gap-2" id="filterBar">
+      <button
+        id="filter-all"
+        data-filter="all"
+        class="filter-btn px-4 py-1.5 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 cursor-pointer transition-all"
+      >
+        All Projects
+      </button>
+      {allTags.map(tag => (
+        <button
+          id={`filter-${tag.toLowerCase().replace(/\s+/g, '-')}`}
+          data-filter={tag}
+          class="filter-btn px-4 py-1.5 rounded-full text-xs font-semibold border border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-600 hover:text-slate-200 cursor-pointer transition-all"
+        >
+          {tag}
+        </button>
+      ))}
+    </div>
+
+    <!-- Featured Projects (2-column large cards) -->
+    <div class="space-y-6">
+      <h2 class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Featured</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="featuredGrid">
+        {featuredProjects.map(project => {
+          const status = statusConfig[project.status];
+          return (
+            <article
+              data-tags={project.tags.join(',')}
+              class={`project-card group relative flex flex-col rounded-2xl border border-slate-900 bg-gradient-to-br ${project.gradient} p-6 hover:border-slate-700 transition-all duration-300 overflow-hidden`}
+            >
+              <div class="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/[0.02] to-transparent"></div>
+
+              <div class="flex items-start justify-between gap-4 mb-4">
+                <div class="flex items-center gap-3">
+                  <div class="text-4xl leading-none">{project.icon}</div>
+                  <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <h3 class="font-display text-xl font-bold text-slate-100 group-hover:text-white transition-colors">
+                        {project.title}
+                      </h3>
+                      <span class={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${status.classes}`}>
+                        <span class={`h-1.5 w-1.5 rounded-full ${status.dot}`}></span>
+                        {status.label}
+                      </span>
+                    </div>
+                    <span class="text-[10px] text-slate-600 font-mono">{project.year}</span>
+                  </div>
+                </div>
+                <div class="flex gap-1 flex-wrap justify-end">
+                  {project.tags.map(tag => (
+                    <span class="px-2 py-0.5 rounded-md bg-slate-900/60 text-slate-500 text-[10px] font-semibold border border-slate-800/50">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <p class="text-slate-300 text-sm leading-relaxed mb-2">{project.description}</p>
+              <p class="text-slate-500 text-xs leading-relaxed mb-5">{project.longDesc}</p>
+
+              <div class="flex flex-wrap gap-1.5 mb-6">
+                {project.stack.map(tech => {
+                  const cls = stackColors[tech] || 'bg-slate-800/50 text-slate-400 border-slate-700/50';
+                  return (
+                    <span class={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${cls}`}>
+                      {tech}
+                    </span>
+                  );
+                })}
+              </div>
+
+              <div class="flex items-center gap-3 mt-auto">
+                {project.liveUrl && (
+                  <a
+                    href={project.liveUrl}
+                    target={project.liveUrl.startsWith('http') ? '_blank' : undefined}
+                    rel={project.liveUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    class="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 text-xs font-semibold hover:bg-indigo-600/30 transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                      <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                    </svg>
+                    Live Demo
+                  </a>
+                )}
+                {project.githubUrl && (
+                  <a
+                    href={project.githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-400 text-xs font-semibold hover:border-slate-600 hover:text-slate-200 transition-all"
+                  >
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                    </svg>
+                    GitHub
+                  </a>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+
+    <!-- Other Projects (3-column compact cards) -->
+    <div class="space-y-6">
+      <h2 class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">More Projects</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="projectsGrid">
+        {otherProjects.map(project => {
+          const status = statusConfig[project.status];
+          return (
+            <article
+              data-tags={project.tags.join(',')}
+              class={`project-card group relative flex flex-col rounded-2xl border border-slate-900 bg-gradient-to-br ${project.gradient} p-5 hover:border-slate-700 transition-all duration-300 overflow-hidden`}
+            >
+              <div class="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/[0.02] to-transparent"></div>
+
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-2xl leading-none">{project.icon}</span>
+                  <div>
+                    <h3 class="font-display text-base font-bold text-slate-100 group-hover:text-white transition-colors leading-tight">
+                      {project.title}
+                    </h3>
+                    <span class="text-[10px] text-slate-600 font-mono">{project.year}</span>
+                  </div>
+                </div>
+                <span class={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${status.classes}`}>
+                  <span class={`h-1 w-1 rounded-full ${status.dot}`}></span>
+                  {status.label}
+                </span>
+              </div>
+
+              <div class="flex gap-1 flex-wrap mb-3">
+                {project.tags.map(tag => (
+                  <span class="px-1.5 py-0.5 rounded bg-slate-900/50 text-slate-500 text-[9px] font-semibold border border-slate-800/50">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              <p class="text-slate-400 text-xs leading-relaxed mb-4 flex-1">{project.description}</p>
+
+              <div class="flex flex-wrap gap-1 mb-4">
+                {project.stack.slice(0, 4).map(tech => {
+                  const cls = stackColors[tech] || 'bg-slate-800/50 text-slate-400 border-slate-700/50';
+                  return (
+                    <span class={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${cls}`}>
+                      {tech}
+                    </span>
+                  );
+                })}
+                {project.stack.length > 4 && (
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-bold border bg-slate-800/50 text-slate-500 border-slate-700/50">
+                    +{project.stack.length - 4} more
+                  </span>
+                )}
+              </div>
+
+              <div class="flex items-center gap-2 mt-auto">
+                {project.liveUrl && (
+                  <a
+                    href={project.liveUrl}
+                    target={project.liveUrl.startsWith('http') ? '_blank' : undefined}
+                    rel={project.liveUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/15 border border-indigo-500/25 text-indigo-400 text-[10px] font-semibold hover:bg-indigo-600/25 transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                      <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                    </svg>
+                    Demo
+                  </a>
+                )}
+                {project.githubUrl && (
+                  <a
+                    href={project.githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 text-slate-400 text-[10px] font-semibold hover:border-slate-600 hover:text-slate-200 transition-all"
+                  >
+                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                    </svg>
+                    Code
+                  </a>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" style="display:none;" class="text-center py-20 text-slate-600">
+      <p class="text-4xl mb-3">🔍</p>
+      <p class="font-semibold text-slate-500">No projects match this filter.</p>
+      <button data-filter="all" class="filter-btn mt-4 text-xs text-indigo-400 hover:text-indigo-300 underline cursor-pointer">
+        Clear filter
+      </button>
+    </div>
+
+    <!-- CTA Footer -->
+    <div class="rounded-2xl border border-slate-900 bg-slate-950/40 p-8 text-center space-y-4">
+      <div class="text-3xl">💡</div>
+      <h3 class="font-display text-xl font-bold text-slate-100">Have a project idea?</h3>
+      <p class="text-slate-400 text-sm max-w-md mx-auto">
+        I'm always open to collaboration on interesting side projects or open-source ideas. Reach out on GitHub!
+      </p>
+      <a
+        href="https://github.com/therising"
+        target="_blank"
+        rel="noopener noreferrer"
+        id="githubProfileBtn"
+        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 text-sm font-semibold hover:bg-indigo-600/30 transition-all"
+      >
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+        View GitHub Profile
+      </a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  const filterBtns = document.querySelectorAll<HTMLButtonElement>('.filter-btn');
+  const projectCards = document.querySelectorAll<HTMLElement>('.project-card');
+  const emptyState = document.getElementById('emptyState');
+
+  function applyFilter(tag: string) {
+    let visibleCount = 0;
+
+    filterBtns.forEach(btn => {
+      const isActive = btn.getAttribute('data-filter') === tag;
+      if (isActive) {
+        btn.className = 'filter-btn px-4 py-1.5 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 cursor-pointer transition-all';
+      } else {
+        btn.className = 'filter-btn px-4 py-1.5 rounded-full text-xs font-semibold border border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-600 hover:text-slate-200 cursor-pointer transition-all';
+      }
+    });
+
+    projectCards.forEach(card => {
+      const cardTags = card.getAttribute('data-tags') || '';
+      const matches = tag === 'all' || cardTags.split(',').includes(tag);
+      if (matches) {
+        card.style.display = '';
+        card.style.animation = 'fadeInCard 0.3s ease forwards';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    if (emptyState) {
+      emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+  }
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.getAttribute('data-filter') || 'all';
+      applyFilter(tag);
+    });
+  });
+</script>
+
+<style>
+  @keyframes fadeInCard {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>

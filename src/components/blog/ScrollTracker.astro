@@ -1,0 +1,94 @@
+---
+// src/components/blog/ScrollTracker.astro
+interface Props {
+  postSlug: string;
+}
+
+const { postSlug } = Astro.props;
+---
+
+<!-- Invisible tracker component -->
+<div id="scrollTracker" data-slug={postSlug}></div>
+
+<script>
+  import { supabase } from '../../lib/supabase';
+
+  const tracker = document.getElementById('scrollTracker');
+  const postSlug = tracker?.getAttribute('data-slug');
+
+  if (postSlug) {
+    let currentUserId: string | null = null;
+    let maxProgressSeen = 0;
+    let saveProgressTimeout: any = null;
+
+    // Check if user is logged in first
+    async function initProgressTracker() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return; // Silent return for guests — no log quota consumed
+
+      currentUserId = session.user.id;
+
+      // Fetch existing progress if any
+      const { data: existing } = await supabase
+        .from('reading_progress')
+        .select('progress_pct')
+        .eq('user_id', currentUserId)
+        .eq('post_slug', postSlug)
+        .maybeSingle();
+
+      if (existing) {
+        maxProgressSeen = existing.progress_pct;
+      }
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+    }
+
+    function handleScroll() {
+      const scrollY = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight;
+      const winHeight = window.innerHeight;
+      
+      const scrollable = docHeight - winHeight;
+      if (scrollable <= 0) return;
+
+      const progressPct = Math.round((scrollY / scrollable) * 100);
+      
+      // We only update if user scrolled deeper than their previous save
+      if (progressPct > maxProgressSeen) {
+        maxProgressSeen = Math.min(progressPct, 100);
+        
+        // Debounce DB updates by 1 second to avoid table quota spam
+        if (saveProgressTimeout) clearTimeout(saveProgressTimeout);
+
+        saveProgressTimeout = setTimeout(saveReadingProgress, 1000);
+      }
+    }
+
+    async function saveReadingProgress() {
+      if (!currentUserId) return;
+
+      // Standard milestone thresholds (20%, 40%, 60%, 80%, 90%+)
+      // Keep DB writes locked strictly to these steps to protect billing quotas
+      const roundedProgress = Math.round(maxProgressSeen / 10) * 10;
+      if (roundedProgress === 0) return;
+
+      const isCompleted = roundedProgress >= 90;
+
+      const { error } = await supabase
+        .from('reading_progress')
+        .upsert({
+          user_id: currentUserId,
+          post_slug: postSlug,
+          progress_pct: roundedProgress,
+          completed: isCompleted,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Progress sync error:', error.message);
+      }
+    }
+
+    initProgressTracker();
+  }
+</script>

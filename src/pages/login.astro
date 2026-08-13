@@ -1,0 +1,100 @@
+---
+// src/pages/login.astro
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Sign In" description="Secure access to your personal dashboard and synchronized settings.">
+  <div class="min-h-[60vh] flex items-center justify-center py-6">
+    <div class="w-full max-w-md p-8 rounded-2xl bg-slate-950/40 backdrop-blur-md border border-slate-900 shadow-2xl relative overflow-hidden group">
+      
+      <!-- Top glow accent -->
+      <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-50"></div>
+      
+      <div class="text-center mb-8 relative">
+        <a href="/" class="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-400 transition-colors mb-6">
+          &larr; Back to Home
+        </a>
+        <h1 class="text-2xl sm:text-3xl font-display font-extrabold text-slate-100 tracking-tight mb-2">
+          Welcome Back
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-400 font-light">
+          Sign in to access secure cloud notes, leaderboard tracking, and your reading list.
+        </p>
+      </div>
+
+      <!-- Login Card Actions -->
+      <div class="space-y-4 relative">
+        <button id="googleLoginBtn" class="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-slate-100 font-medium rounded-xl transition-all duration-200 flex items-center justify-center gap-3 cursor-pointer shadow-sm hover:shadow-indigo-500/5 group/btn">
+          <svg class="w-5 h-5 transition-transform group-hover/btn:scale-105" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.24 10.285V13.4h6.887c-.648 2.41-2.519 4.19-5.136 4.19A5.46 5.46 0 0 1 8.53 12c0-3.01 2.45-5.46 5.46-5.46 1.366 0 2.614.508 3.57 1.346l2.39-2.39C18.23 3.905 16.273 3 13.99 3 9.022 3 5 7.022 5 12c0 4.978 4.022 9 8.99 9 5.203 0 8.65-3.66 8.65-8.805 0-.618-.057-1.173-.173-1.61H12.24z"/>
+          </svg>
+          <span class="text-sm font-semibold">Continue with Google</span>
+        </button>
+
+        <div class="relative py-4 flex items-center justify-center">
+          <span class="absolute inset-x-0 h-[1px] bg-slate-900"></span>
+          <span class="relative px-3 text-[10px] uppercase font-bold text-slate-600 bg-slate-950">Security Gate</span>
+        </div>
+
+        <div class="p-4 rounded-xl border border-slate-900/60 bg-slate-950/20 text-[11px] leading-relaxed text-slate-500 space-y-2">
+          <p class="flex items-start gap-1.5">
+            <span class="text-indigo-400 font-bold">✓</span>
+            Genuinely free authenticaton powered by Supabase Auth limits.
+          </p>
+          <p class="flex items-start gap-1.5">
+            <span class="text-indigo-400 font-bold">✓</span>
+            All connection processes utilize official OAuth redirect security keys.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { supabase } from '../lib/supabase';
+
+    const loginBtn = document.getElementById('googleLoginBtn');
+
+    if (loginBtn) {
+      loginBtn.addEventListener('click', async () => {
+        loginBtn.setAttribute('disabled', 'true');
+        loginBtn.innerHTML = `
+          <svg class="animate-spin h-5 w-5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-sm font-semibold">Redirecting to Google...</span>
+        `;
+
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            // Redirects to /profile page upon successful sign-in
+            redirectTo: `${window.location.origin}/profile`,
+          },
+        });
+
+        if (error) {
+          console.error('Sign-in error:', error.message);
+          alert(`Authentication failed: ${error.message}`);
+          loginBtn.removeAttribute('disabled');
+          loginBtn.innerHTML = `
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.24 10.285V13.4h6.887c-.648 2.41-2.519 4.19-5.136 4.19A5.46 5.46 0 0 1 8.53 12c0-3.01 2.45-5.46 5.46-5.46 1.366 0 2.614.508 3.57 1.346l2.39-2.39C18.23 3.905 16.273 3 13.99 3 9.022 3 5 7.022 5 12c0 4.978 4.022 9 8.99 9 5.203 0 8.65-3.66 8.65-8.805 0-.618-.057-1.173-.173-1.61H12.24z"/>
+            </svg>
+            <span class="text-sm font-semibold">Continue with Google</span>
+          `;
+        }
+      });
+    }
+
+    // Direct check: if already authenticated, go directly to profile
+    async function checkActiveSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        window.location.href = '/profile';
+      }
+    }
+    checkActiveSession();
+  </script>
+</BaseLayout>

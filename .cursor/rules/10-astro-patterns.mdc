@@ -1,0 +1,239 @@
+---
+description: >
+  Astro-specific patterns — components, Content Collections, SSG/SSR decisions,
+  routing, image optimization, and Astro islands. Apply when working on .astro files.
+globs: ["**/*.astro", "astro.config.*", "src/content/**"]
+alwaysApply: false
+---
+
+# 10 — Astro Patterns
+
+## Component Structure
+```astro
+---
+// src/components/blog/BlogCard.astro
+// Frontmatter: TypeScript only — runs at BUILD time (SSG) or REQUEST time (SSR)
+import type { BlogPost } from '../../types';
+import { formatDate } from '../../lib/utils';
+
+interface Props {
+  post: BlogPost;
+  featured?: boolean;
+}
+
+const { post, featured = false } = Astro.props;
+const formattedDate = formatDate(post.publishedAt);
+---
+
+<!-- Template: HTML + scoped CSS -->
+<article class={`card ${featured ? 'card--featured' : ''}`}>
+  <a href={`/blog/${post.slug}`}>
+    <h2>{post.title}</h2>
+    <time datetime={post.publishedAt}>{formattedDate}</time>
+    <p>{post.excerpt}</p>
+  </a>
+</article>
+
+<style>
+  /* Scoped to this component — no leaking */
+  .card { @apply rounded-lg border border-slate-200 p-4; }
+  .card--featured { @apply border-indigo-500 shadow-md; }
+</style>
+```
+
+---
+
+## Astro Content Collections (Blog & Notes)
+```typescript
+// src/content/config.ts — define schema for type safety
+import { z, defineCollection } from 'astro:content';
+
+const blog = defineCollection({
+  type: 'content',
+  schema: z.object({
+    title: z.string(),
+    description: z.string().max(160), // SEO limit
+    publishedAt: z.coerce.date(),
+    updatedAt: z.coerce.date().optional(),
+    tags: z.array(z.string()).default([]),
+    draft: z.boolean().default(false),
+    ogImage: z.string().optional(),
+  }),
+});
+
+export const collections = { blog };
+```
+
+```astro
+---
+// src/pages/blog/[slug].astro
+import { getCollection, getEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map(post => ({
+    params: { slug: post.slug },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await post.render();
+---
+
+<BaseLayout title={post.data.title} description={post.data.description}>
+  <article>
+    <h1>{post.data.title}</h1>
+    <Content />
+  </article>
+</BaseLayout>
+```
+
+---
+
+## Astro Islands (Interactive Components)
+Use islands ONLY when interactivity is needed. Default to plain HTML.
+
+```astro
+---
+// Astro island — loads JS only for the interactive part
+import GameComponent from '../components/games/GameComponent';
+import ScoreForm from '../components/games/ScoreForm';
+---
+
+<!-- Static content — no JS -->
+<h1>Snake Game</h1>
+<p>Score: {topScore}</p>
+
+<!-- Island — loads React/Vanilla JS only here -->
+<GameComponent client:load />
+
+<!-- Lazy island — loads when visible -->
+<ScoreForm client:visible />
+```
+
+**Island directives — choose correctly:**
+| Directive | When to Use |
+|---|---|
+| `client:load` | Critical interactive UI (game canvas) |
+| `client:visible` | Below-fold interactive elements |
+| `client:idle` | Non-critical interactive elements |
+| `client:only="vanilla"` | Component that only runs in browser |
+
+> Prefer vanilla JS over any framework for simple interactivity.
+> Games can use vanilla JS/Canvas — no framework needed.
+
+---
+
+## Image Optimization (Mandatory)
+```astro
+---
+import { Image } from 'astro:assets';
+import heroImage from '../assets/hero.png';
+---
+
+<!-- ✅ Correct — Astro optimizes automatically -->
+<Image
+  src={heroImage}
+  alt="Description of image" 
+  width={800}
+  height={400}
+  format="webp"
+/>
+
+<!-- ❌ Wrong — no optimization, no dimensions -->
+<img src="/hero.png" />
+```
+
+Rules:
+- Always use `<Image>` from `astro:assets` (not raw `<img>`) for local images
+- Always specify `width` and `height` to prevent layout shift
+- Use `format="webp"` for photographs
+- Add meaningful `alt` text — never empty `alt=""` for meaningful images
+- User-uploaded images (Supabase Storage): use Supabase image transform URL with size params
+
+---
+
+## BaseLayout Pattern
+```astro
+---
+// src/layouts/BaseLayout.astro
+interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+  canonical?: string;
+}
+
+const {
+  title,
+  description,
+  ogImage = '/og-default.png',
+  canonical = Astro.url.href,
+} = Astro.props;
+
+const siteName = 'Your Name';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- SEO -->
+    <title>{title} | {siteName}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:type" content="website" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+```
+
+---
+
+## Routing Rules
+| Pattern | Example | Type |
+|---|---|---|
+| Static page | `src/pages/about.astro` | SSG |
+| Dynamic slug | `src/pages/blog/[slug].astro` | SSG with `getStaticPaths` |
+| API endpoint | `src/pages/api/scores.ts` | Server endpoint |
+| Auth redirect | `src/pages/profile.astro` | SSR (needs middleware) |
+
+- API endpoints live in `src/pages/api/` and export `GET`, `POST` etc.
+- SSR pages need `export const prerender = false` or global `output: 'server'` in config
+- Never expose sensitive data in SSG pages — they are public static files
+
+---
+
+## Astro Config Reference
+```javascript
+// astro.config.mjs
+import { defineConfig } from 'astro/config';
+import tailwind from '@astrojs/tailwind';
+import sitemap from '@astrojs/sitemap';
+import cloudflare from '@astrojs/cloudflare';
+
+export default defineConfig({
+  site: 'https://yourdomain.com',
+  adapter: cloudflare(),   // Cloudflare Pages adapter (SSG by default, SSR opt-in per-page via prerender flag)
+  integrations: [
+    tailwind({ applyBaseStyles: false }),
+    sitemap(),
+  ],
+});
+```

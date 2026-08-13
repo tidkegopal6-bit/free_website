@@ -1,0 +1,228 @@
+---
+// src/pages/profile.astro
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="My Profile" description="Manage your credentials, synchronize settings, and review dynamic stats.">
+  
+  <!-- Loading skeleton view -->
+  <div id="loadingView" class="max-w-3xl mx-auto flex items-center justify-center min-h-[50vh]">
+    <div class="flex flex-col items-center space-y-4">
+      <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      <p class="text-xs text-slate-500 font-mono tracking-wider">Verifying Session State...</p>
+    </div>
+  </div>
+
+  <!-- Authenticated profile container (hidden by default, shown by JS) -->
+  <div id="profileContainer" class="max-w-3xl mx-auto hidden space-y-8">
+    
+    <!-- Hero Profile card -->
+    <div class="p-8 rounded-2xl bg-slate-950/40 backdrop-blur-md border border-slate-900 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center gap-6">
+      
+      <!-- Top neon line -->
+      <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-indigo-500/80 via-purple-500/80 to-pink-500/80"></div>
+      
+      <!-- Avatar container -->
+      <div class="relative w-24 h-24 shrink-0">
+        <img id="profileAvatar" class="w-full h-full rounded-2xl object-cover border-2 border-slate-800 bg-slate-900" src="/placeholder-avatar.png" alt="User Avatar" />
+        <div class="absolute inset-0 rounded-2xl shadow-inner border border-white/5 pointer-events-none"></div>
+      </div>
+      
+      <!-- Meta details -->
+      <div class="text-center md:text-left flex-1 min-w-0">
+        <h1 id="profileName" class="text-2xl font-display font-extrabold text-slate-100 tracking-tight leading-tight mb-1">
+          Loading Name...
+        </h1>
+        <p id="profileHandle" class="text-sm text-indigo-400 font-mono mb-2">
+          @loading_handle
+        </p>
+        <p id="profileBio" class="text-sm text-slate-400 font-light leading-relaxed max-w-lg">
+          No bio updated yet. Let us know something about you!
+        </p>
+      </div>
+
+      <!-- Action wrapper -->
+      <div class="shrink-0 flex flex-row md:flex-col gap-3 w-full md:w-auto">
+        <button id="editProfileBtn" class="flex-1 md:flex-initial px-4 py-2 text-xs font-semibold text-slate-300 hover:text-slate-100 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl transition-all cursor-pointer text-center">
+          Edit Profile
+        </button>
+        <button id="logoutBtn" class="flex-1 md:flex-initial px-4 py-2 text-xs font-semibold text-red-400 hover:text-red-300 bg-red-950/10 border border-red-950/20 hover:border-red-900/30 rounded-xl transition-all cursor-pointer text-center">
+          Sign Out
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Profile Modal / Form (hidden by default) -->
+    <div id="editModal" class="hidden p-6 rounded-2xl bg-slate-950/60 border border-slate-900 shadow-lg space-y-4">
+      <h3 class="text-base font-bold text-slate-200 font-display">Edit Profile Details</h3>
+      <form id="editForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="editDisplayName">Display Name</label>
+          <input id="editDisplayName" class="w-full px-4 py-2.5 rounded-lg bg-slate-950 border border-slate-900 focus:border-indigo-500/50 text-slate-100 text-sm focus:outline-none transition-colors" type="text" required />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="editBio">Bio</label>
+          <textarea id="editBio" class="w-full px-4 py-2.5 rounded-lg bg-slate-950 border border-slate-900 focus:border-indigo-500/50 text-slate-100 text-sm focus:outline-none transition-colors h-24 resize-none" placeholder="Write a short bio..."></textarea>
+        </div>
+        <div class="flex items-center gap-3 justify-end">
+          <button id="cancelEditBtn" type="button" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-300 cursor-pointer">Cancel</button>
+          <button id="saveProfileBtn" type="submit" class="px-5 py-2 rounded-lg text-xs font-semibold text-slate-100 bg-indigo-600 hover:bg-indigo-500 shadow-md hover:shadow-indigo-500/20 cursor-pointer transition-all">Save Changes</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Stats & Features Overview -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="p-5 rounded-2xl bg-slate-950/20 border border-slate-900 text-center sm:text-left">
+        <span class="text-2xl block mb-2">📔</span>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Database Notes</h4>
+        <p class="text-lg font-display font-extrabold text-slate-200" id="statNotes">0 Created</p>
+      </div>
+      <div class="p-5 rounded-2xl bg-slate-950/20 border border-slate-900 text-center sm:text-left">
+        <span class="text-2xl block mb-2">🎮</span>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Arcade High Score</h4>
+        <p class="text-lg font-display font-extrabold text-slate-200" id="statHighscore">No Scores</p>
+      </div>
+      <div class="p-5 rounded-2xl bg-slate-950/20 border border-slate-900 text-center sm:text-left">
+        <span class="text-2xl block mb-2">🔖</span>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Saved Bookmarks</h4>
+        <p class="text-lg font-display font-extrabold text-slate-200" id="statBookmarks">0 Tracked</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { supabase } from '../lib/supabase';
+
+    const loadingView = document.getElementById('loadingView');
+    const profileContainer = document.getElementById('profileContainer');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    // Profile DOM Elements
+    const profileAvatar = document.getElementById('profileAvatar') as HTMLImageElement;
+    const profileName = document.getElementById('profileName');
+    const profileHandle = document.getElementById('profileHandle');
+    const profileBio = document.getElementById('profileBio');
+
+    // Edit Modal Elements
+    const editProfileBtn = document.getElementById('editProfileBtn');
+    const editModal = document.getElementById('editModal');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const editForm = document.getElementById('editForm');
+    const editDisplayName = document.getElementById('editDisplayName') as HTMLInputElement;
+    const editBio = document.getElementById('editBio') as HTMLTextAreaElement;
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+
+    let currentUserId: string | null = null;
+
+    async function checkAuthAndLoadProfile() {
+      // 1. Get session state
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // 2. Strict client-side protection
+      if (!session) {
+        window.location.href = '/login';
+        return;
+      }
+
+      currentUserId = session.user.id;
+
+      // 3. Fetch matching record from profiles table
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('username, display_name, avatar_url, bio')
+          .eq('id', currentUserId)
+          .single();
+
+        if (error) {
+          // If trigger takes a second to write or table isn't created, populate template
+          console.warn('Profile fetch failed:', error.message);
+          populateTemplate({
+            display_name: session.user.user_metadata.full_name || 'User',
+            username: 'user_' + session.user.id.substring(0, 5),
+            avatar_url: session.user.user_metadata.avatar_url || '/placeholder-avatar.png',
+            bio: 'Database trigger profiles setup is pending configuration.'
+          });
+        } else if (profile) {
+          populateTemplate(profile);
+        }
+
+        // Show main profile block, hide loading spinner
+        if (loadingView && profileContainer) {
+          loadingView.classList.add('hidden');
+          profileContainer.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error('Error during load:', err);
+      }
+    }
+
+    function populateTemplate(profile: { display_name: string; username: string; avatar_url?: string; bio?: string }) {
+      if (profileAvatar) profileAvatar.src = profile.avatar_url || '/placeholder-avatar.png';
+      if (profileName) profileName.textContent = profile.display_name;
+      if (profileHandle) profileHandle.textContent = `@${profile.username}`;
+      if (profileBio) profileBio.textContent = profile.bio || 'No bio updated yet. Let us know something about you!';
+      
+      // Update form values
+      if (editDisplayName) editDisplayName.value = profile.display_name;
+      if (editBio) editBio.value = profile.bio || '';
+    }
+
+    // Modal Visibility Controls
+    if (editProfileBtn && editModal) {
+      editProfileBtn.addEventListener('click', () => {
+        editModal.classList.toggle('hidden');
+      });
+    }
+
+    if (cancelEditBtn && editModal) {
+      cancelEditBtn.addEventListener('click', () => {
+        editModal.classList.add('hidden');
+      });
+    }
+
+    // Submit form updates back to database
+    if (editForm && editModal && saveProfileBtn) {
+      editForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentUserId) return;
+
+        saveProfileBtn.setAttribute('disabled', 'true');
+        saveProfileBtn.textContent = 'Saving...';
+
+        const updatedName = editDisplayName.value.trim();
+        const updatedBio = editBio.value.trim();
+
+        const { error } = await supabase
+          .from('profiles')
+          .update({ display_name: updatedName, bio: updatedBio })
+          .eq('id', currentUserId);
+
+        saveProfileBtn.removeAttribute('disabled');
+        saveProfileBtn.textContent = 'Save Changes';
+
+        if (error) {
+          alert(`Failed to save details: ${error.message}`);
+        } else {
+          // Sync changes instantly
+          if (profileName) profileName.textContent = updatedName;
+          if (profileBio) profileBio.textContent = updatedBio || 'No bio updated yet. Let us know something about you!';
+          editModal.classList.add('hidden');
+        }
+      });
+    }
+
+    // Sign out action
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        logoutBtn.setAttribute('disabled', 'true');
+        logoutBtn.textContent = 'Signing out...';
+        await supabase.auth.signOut();
+        window.location.href = '/';
+      });
+    }
+
+    checkAuthAndLoadProfile();
+  </script>
+</BaseLayout>

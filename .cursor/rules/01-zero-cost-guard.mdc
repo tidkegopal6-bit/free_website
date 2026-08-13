@@ -1,0 +1,128 @@
+---
+description: >
+  ZERO-COST GUARD — The most critical rule. Before adding ANY service, package,
+  or API — verify it is genuinely free with no credit card required.
+  STOP and propose a free alternative if any cost is detected.
+globs:
+alwaysApply: true
+---
+
+# 01 — Zero-Cost Guard: $0/Month Enforcement
+
+## 🔴 The Prime Directive
+**This website MUST cost $0/month to run. No exceptions.**
+
+Before adding ANY of the following — **verify free tier first**:
+- A new third-party service
+- A new npm package that calls an external API
+- A new Supabase feature (storage bucket, edge function, realtime)
+- Any form of background job or cron
+- Any CDN, image host, or media service
+- Email sending, SMS, push notifications
+- Analytics, monitoring, error tracking
+
+---
+
+## Free Tier Verification Protocol
+
+Before adding any service, you MUST:
+1. **Find the official pricing page** (not a blog post, not memory)
+2. **Confirm the free tier exists today** (pricing changes — always check live)
+3. **Confirm NO credit card is required** to activate the free tier
+4. **Note the specific limits** (requests/month, storage, bandwidth, seats)
+5. **Estimate our usage** — will we stay under the limit?
+6. **Document in `aimd/DECISIONS.md`** with pricing page URL and date checked
+
+```markdown
+## DEC-[NNN] — [Service] Free Tier Verified — [Date]
+**Service**: [name]
+**Pricing page**: [URL]
+**Free tier**: [exact limits]
+**Card required**: No
+**Estimated usage**: [our projected usage]
+**Will stay free**: Yes — because [reason]
+```
+
+---
+
+## ✅ Verified Free Services (Pre-Confirmed)
+
+| Service | Free Limit | Card Required | Source |
+|---|---|---|---|
+| **Cloudflare Pages** | 500 builds/mo, unlimited requests, unlimited bandwidth | ❌ No | cloudflare.com/plans |
+| **Supabase** | 500MB DB, 1GB file storage, 50,000 MAU auth, 2GB bandwidth | ❌ No | supabase.com/pricing |
+| **GitHub** | Unlimited public repos, 2,000 Actions min/mo | ❌ No | github.com/pricing |
+| **Google OAuth** | Free via Supabase Auth (no Google Cloud billing needed) | ❌ No | supabase.com/docs/guides/auth/social-login/auth-google |
+| **Hostinger domain** | Already owned — $0 ongoing | N/A | Already paid |
+
+> ⚠️ These were verified at project start. Re-verify if adding new Supabase features (Edge Functions, Realtime, Storage buckets have separate quotas).
+
+---
+
+## 🛑 STOP Protocol — If Cost Detected
+
+If implementing a feature would require a paid service:
+
+```
+🛑 COST DETECTED: [Feature] cannot be done for $0 using [service].
+
+Reason: [why it would cost money]
+
+Free alternatives:
+A) [Alternative 1] — $0 because [reason] — Tradeoffs: [list]
+B) [Alternative 2] — $0 because [reason] — Tradeoffs: [list]
+C) Defer this feature until a free solution exists
+
+Recommendation: [A / B / C] — because [reason]
+
+Do NOT proceed until user confirms a free path.
+```
+
+**NEVER add a paid service as a temporary solution.**
+**NEVER assume "we'll deal with billing later."**
+
+---
+
+## Supabase Quota Safety Rules
+
+Supabase free tier limits to stay within:
+- **Database**: 500MB — normalize data, no duplicate storage, no blobs in DB
+- **Storage**: 1GB — compress images before upload, user avatars max 200KB
+- **Auth MAU**: 50,000 — no concern for personal site
+- **Bandwidth**: 2GB/mo — serve static assets via Cloudflare CDN, not Supabase
+- **Edge Functions**: 500,000 invocations/mo — use sparingly, prefer static/SSG
+
+### DB Efficiency Rules
+- Never store large text blobs in DB — use markdown files in repo for blog/notes
+- Never store base64 images in DB — use Supabase Storage with public bucket
+- Use pagination — never fetch entire tables
+- Add indexes on columns used in `WHERE`/`ORDER BY`
+- Soft delete with `is_deleted` flag — never bulk delete and re-insert
+
+---
+
+## Bandwidth Conservation Rules
+- All static assets (images, fonts, JS) served from Cloudflare CDN (free)
+- Blog/notes content = markdown files in repo = static, $0 bandwidth from Supabase
+- Supabase is called only for: auth, user data, game scores, bookmarks
+- No polling — use Supabase Realtime only if absolutely necessary (counts toward bandwidth)
+- Images: Use `<Image>` from Astro with width/height specified, WebP format
+
+---
+
+## Monetization Hooks (Future)
+When monetization is added in future:
+- Research free tier of monetization platform first (e.g., Stripe has no monthly fee — only % per transaction ✅)
+- Design so monetization is opt-in and does not increase baseline infra cost
+- Never add a service "just in case" — add only when actively needed
+
+---
+
+## Prohibited Services (Require Credit Card or Have No Free Tier)
+- ❌ AWS, GCP, Azure (free tiers expire after 12 months or require card)
+- ❌ Vercel (hobby free tier has bandwidth limits that require upgrade)
+- ❌ PlanetScale (no longer has a free tier as of 2024)
+- ❌ Heroku (removed free tier)
+- ❌ MongoDB Atlas (requires card even on free tier)
+- ❌ SendGrid / Mailgun (requires card for free tier in many regions)
+- ❌ Any service with "Start free trial" instead of "Free forever"

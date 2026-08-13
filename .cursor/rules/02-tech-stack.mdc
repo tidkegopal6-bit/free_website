@@ -1,0 +1,137 @@
+---
+description: >
+  Tech stack conventions — Astro, TypeScript, Tailwind, Supabase patterns
+  and project structure. Reference before creating any file.
+globs:
+alwaysApply: true
+---
+
+# 02 — Tech Stack: Conventions & Patterns
+
+## Stack Overview
+| Layer | Technology | Version |
+|---|---|---|
+| Framework | Astro | Latest stable (check `package.json`) |
+| Language | TypeScript | Strict mode (`"strict": true` in tsconfig) |
+| Styling | Tailwind CSS | v3 |
+| Database | Supabase (PostgreSQL) | Free tier |
+| Auth | Supabase Auth (Google OAuth) | Free tier |
+| Storage | Supabase Storage | Free tier (1GB limit) |
+| Hosting | Cloudflare Pages | Free tier |
+| Domain | Hostinger DNS | Already owned |
+
+---
+
+## Project Structure
+```
+free_website/
+├── src/
+│   ├── components/        ← Reusable Astro/UI components
+│   │   ├── layout/        ← Header, Footer, Nav, Layout wrappers
+│   │   ├── blog/          ← BlogCard, BlogList, PostHeader
+│   │   ├── games/         ← GameCard, ScoreBoard
+│   │   ├── notes/         ← NoteCard, NoteEditor
+│   │   └── ui/            ← Button, Input, Modal, Badge (primitives)
+│   ├── layouts/           ← Base layouts (BaseLayout, BlogLayout)
+│   ├── pages/             ← Astro file-based routing
+│   │   ├── index.astro    ← Homepage
+│   │   ├── blog/          ← Blog index + [slug].astro
+│   │   ├── notes/         ← Notes list + [id].astro
+│   │   ├── games/         ← Games index + [slug].astro
+│   │   ├── projects/      ← Projects showcase
+│   │   └── profile/       ← User profile page
+│   ├── lib/               ← Utility functions, Supabase client
+│   │   ├── supabase.ts    ← Supabase client singleton
+│   │   └── utils.ts       ← Shared utilities
+│   ├── types/             ← Shared TypeScript types
+│   │   └── index.ts       ← All exported types
+│   └── content/           ← Astro Content Collections
+│       ├── blog/          ← .md/.mdx blog posts
+│       └── notes/         ← .md public notes
+├── public/                ← Static assets (favicon, og-image)
+├── aimd/                  ← AI memory (not shipped to production)
+├── .env                   ← NOT committed — Cloudflare env vars
+├── .env.example           ← Committed — shows required keys
+├── astro.config.mjs       ← Astro configuration
+├── tailwind.config.mjs    ← Tailwind configuration
+└── tsconfig.json          ← TypeScript strict config
+```
+
+---
+
+## Astro Rendering Strategy
+| Content Type | Strategy | Reason |
+|---|---|---|
+| Blog posts | SSG (`getStaticPaths`) | Static = $0 bandwidth, fast |
+| Notes (public) | SSG | Same as blog |
+| Projects page | SSG | Rarely changes |
+| Homepage | SSG | Fast, free |
+| Games | Client-side only (island) | No server needed |
+| Profile page | SSR (`output: 'server'`) | Needs auth context |
+| Notes (private) | SSR | Needs user session |
+| Bookmarks | SSR | Needs user session |
+| Scores | SSR or CSR | Supabase client-side call OK |
+
+> **Default to SSG.** Only use SSR when user-specific data is required on page load.
+> **Prefer CSR (Astro Islands)** for interactive features that don't need SEO.
+
+---
+
+## Supabase Client Pattern
+```typescript
+// src/lib/supabase.ts
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../types/database.types';
+
+// ✅ ONLY use ANON key on client — NEVER service role key
+export const supabase = createClient<Database>(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+```
+
+> **Critical**: `PUBLIC_SUPABASE_ANON_KEY` is safe for client use.
+> `SUPABASE_SERVICE_ROLE_KEY` MUST NEVER be used in client-side code.
+
+---
+
+## Environment Variables
+```bash
+# .env.example (commit this — no real values)
+PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# SUPABASE_SERVICE_ROLE_KEY — NEVER use in client code
+```
+
+```typescript
+// src/lib/env.ts — type-safe env access
+export const env = {
+  supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL as string,
+  supabaseAnonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string,
+} as const;
+```
+
+---
+
+## Dependency Rules
+- **Before adding any npm package**: check if Astro or browser already provides it
+- **No React** — use Astro components + vanilla JS for interactivity
+- **Exception**: small, focused libraries for games are OK (e.g., canvas helpers)
+- Run `npm ls` to check actual installed packages before adding duplicates
+- Prefer packages with zero dependencies themselves
+- Check package size with `bundlephobia.com` before adding
+
+## Code Style Rules
+- All files: TypeScript (`.ts`, `.astro`)
+- No `any` type — use `unknown` and narrow, or generate Supabase types
+- No `console.log` in production — use conditional `import.meta.env.DEV`
+- Mobile-first CSS — write for 320px, use `md:` and `lg:` prefixes to scale up
+- Accessible HTML: `alt` on all images, ARIA labels on interactive elements
+- Semantic HTML: `<nav>`, `<main>`, `<article>`, `<section>`, `<aside>`
+
+## SEO Rules (Every Page)
+- One `<h1>` per page
+- Unique `<title>` and `<meta name="description">` per page
+- `<meta property="og:*">` for social sharing
+- `<link rel="canonical">` on every page
+- Sitemap generated by `@astrojs/sitemap`

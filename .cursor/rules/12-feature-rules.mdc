@@ -1,0 +1,250 @@
+---
+description: >
+  Feature-specific implementation rules for blog, notes, games, bookmarks,
+  profiles, game scores, and future monetization. Read before implementing any feature.
+globs:
+alwaysApply: false
+---
+
+# 12 — Feature Rules: Per-Feature Implementation Guide
+
+## How to Use This File
+Before implementing any feature, find its section below and read it fully.
+These rules prevent common mistakes and ensure $0 cost, security, and good UX.
+
+---
+
+## 📝 Blog
+
+**Architecture**: Static Generation — markdown files in `src/content/blog/`
+
+### Rules
+- All blog posts are `.md` or `.mdx` files — NO database for blog content
+- Frontmatter schema defined in `src/content/config.ts` (typed)
+- `draft: true` posts excluded from build (`getCollection` filter)
+- Slug = filename (Astro handles automatically)
+- Images: local images in `src/assets/blog/` → Astro optimizes to WebP
+- No paid CMS — content is in the GitHub repo
+- Reading time: calculate at build time from word count (no package needed)
+
+### SEO Checklist (per post)
+- [ ] Unique `title` (max 60 chars) in frontmatter
+- [ ] `description` (max 160 chars) in frontmatter
+- [ ] `ogImage` specified or default used
+- [ ] Heading hierarchy: one `<h1>` (title), then `<h2>` and below in content
+
+### Cost: $0 — Static files, no DB calls
+
+---
+
+## 📔 Notes
+
+**Architecture**: Two types — Public notes (SSG, content collection) + Private notes (SSR, Supabase DB)
+
+### Public Notes
+- Same pattern as blog — `.md` files in `src/content/notes/`
+- No auth required to view
+
+### Private Notes
+```typescript
+// Supabase table: notes
+// Columns: id, user_id, title, content (text), is_public, created_at, updated_at
+// RLS: user_id = auth.uid() for all operations
+```
+- Private notes require Google login
+- Editor: simple `<textarea>` — no rich text library needed initially
+- Auto-save: debounced `UPDATE` to Supabase (500ms debounce — reduces API calls)
+- Content stored as plain text/markdown — no HTML in DB (prevents XSS)
+
+### Cost: $0 — within Supabase 500MB free tier (text is tiny)
+
+---
+
+## 🎮 Browser Games
+
+**Architecture**: Client-side only — pure HTML5 Canvas / vanilla JS
+
+### Rules
+- Games run 100% in browser — NO server calls during gameplay
+- Use Astro `client:only="vanilla"` island or plain `<script>` tags
+- Canvas-based games: no external game engines — keep bundle small
+- Scores are saved to Supabase ONLY after game over (one DB call per session)
+- Guest play allowed — scores only saved if user is logged in
+- Each game lives in its own directory: `src/components/games/[game-name]/`
+
+```typescript
+// Game score save pattern (client-side, after game over)
+async function saveScore(gameSlug: string, finalScore: number) {
+  const session = await supabase.auth.getSession();
+  if (!session.data.session) return; // Not logged in — silently skip
+
+  await supabase
+    .from('game_scores')
+    .insert({ game_slug: gameSlug, score: finalScore });
+    // RLS sets user_id = auth.uid() automatically
+}
+```
+
+### Leaderboard
+- Public leaderboard: top 10 scores per game
+- Query: `SELECT score, profiles.username FROM game_scores JOIN profiles ... ORDER BY score DESC LIMIT 10`
+- Cache leaderboard for 60 seconds in component state — don't re-fetch on every render
+
+### Cost: $0 — games are static assets, DB calls are minimal
+
+---
+
+## 🗂️ Projects Showcase
+
+**Architecture**: Static — data in a TypeScript file or markdown
+
+### Rules
+- NO database for projects list — define in `src/data/projects.ts`
+- Each project: `{ name, description, tech, url, githubUrl, image }`
+- Images: local `src/assets/projects/` → Astro optimizes
+- Links to GitHub (free) and live demo
+
+```typescript
+// src/data/projects.ts
+export const projects: Project[] = [
+  {
+    name: 'Free Website',
+    description: 'Personal website built with Astro + Supabase, $0/month',
+    tech: ['Astro', 'TypeScript', 'Tailwind', 'Supabase'],
+    url: 'https://yourdomain.com',
+    githubUrl: 'https://github.com/you/free_website',
+  },
+];
+```
+
+### Cost: $0 — 100% static
+
+---
+
+## 👤 User Profiles
+
+**Architecture**: SSR — requires auth session
+
+### Supabase Table
+```sql
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username TEXT UNIQUE NOT NULL,
+  display_name TEXT NOT NULL,
+  avatar_url TEXT,
+  bio TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read any profile" ON profiles FOR SELECT USING (true);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+```
+
+### Rules
+- Profile auto-created on first Google login (Supabase Auth trigger or app-level)
+- Avatar: upload to Supabase Storage `avatars/` bucket — max 200KB, WebP format
+- Public profiles: anyone can view (username, display_name, bio, avatar)
+- Private fields: none currently (keep it simple)
+- Username: alphanumeric + underscore only — validate with regex before insert
+
+### Cost: $0 — minimal DB, avatar in Storage (1GB free limit)
+
+---
+
+## 🔖 Bookmarks & Progress
+
+**Architecture**: SSR — requires auth session
+
+### Supabase Tables
+```sql
+-- Bookmarks
+CREATE TABLE bookmarks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  title TEXT NOT NULL,
+  notes TEXT,
+  tags TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Own bookmarks only" ON bookmarks USING (auth.uid() = user_id);
+
+-- Reading progress (for blog posts)
+CREATE TABLE reading_progress (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  post_slug TEXT NOT NULL,
+  progress_pct INTEGER DEFAULT 0,  -- 0-100
+  completed BOOLEAN DEFAULT false,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, post_slug)
+);
+ALTER TABLE reading_progress ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Own progress only" ON reading_progress USING (auth.uid() = user_id);
+```
+
+### Rules
+- Save reading progress: debounced (every 10% scroll or on page leave) — reduce DB calls
+- Bookmarks: simple list view — no folder hierarchy initially (YAGNI)
+- Tags: stored as text array in Postgres — no separate tags table
+
+### Cost: $0 — minimal rows, well within 500MB
+
+---
+
+## 🏆 Game Scores
+
+### Supabase Table
+```sql
+CREATE TABLE game_scores (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  game_slug TEXT NOT NULL,
+  score INTEGER NOT NULL CHECK (score >= 0),
+  achieved_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE game_scores ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users insert own scores" ON game_scores FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Anyone reads scores" ON game_scores FOR SELECT USING (true);
+```
+
+### Anti-Cheat (Basic)
+- Score `CHECK (score >= 0)` constraint in DB
+- Max score sanity check in app (e.g., `score <= 999999`)
+- No server-side validation for now (personal site, low stakes)
+
+### Cost: $0 — scores are tiny rows
+
+---
+
+## 💰 Monetization (Future — No Infra Added Yet)
+
+### Do NOT add monetization infra until actively needed
+When the time comes, acceptable $0-baseline options:
+- **Ko-fi / Buy Me a Coffee**: External link — $0 infra, they handle payments
+- **Stripe**: No monthly fee, only % per transaction — add only when first product exists
+- **GitHub Sponsors**: $0 — add a FUNDING.yml to repo
+
+### Rules
+- Never add a payment processor "just in case"
+- Never add a subscription management service preemptively
+- When adding Stripe: use Stripe's webhook → Supabase Edge Function (verify free tier first)
+- Keep monetization features behind a feature flag initially
+
+---
+
+## Feature Status Tracking
+Update `aimd/PROJECT_STATUS.md` when working on any feature:
+```
+Blog          → [Done]
+Notes         → [InProgress]
+Games         → [Pending]
+Projects      → [Pending]
+Google Login  → [Pending]
+Profiles      → [Pending]
+Bookmarks     → [Pending]
+Game Scores   → [Pending]
+Monetization  → [Pending — future]
+```

@@ -1,0 +1,218 @@
+---
+// src/pages/notes/index.astro
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="My Notes" description="Private digital notes, securely saved in the cloud.">
+  
+  <!-- Loading skeleton view -->
+  <div id="loadingView" class="max-w-4xl mx-auto flex items-center justify-center min-h-[40vh]">
+    <div class="flex flex-col items-center space-y-4">
+      <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+      <p class="text-xs text-slate-500 font-mono tracking-wider">Syncing Workspace...</p>
+    </div>
+  </div>
+
+  <!-- Main Notes Container (hidden by default, shown by JS) -->
+  <div id="notesContainer" class="max-w-4xl mx-auto hidden space-y-8 animate-fade-in">
+    
+    <!-- Dashboard Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-900">
+      <div>
+        <h1 class="text-3xl font-display font-extrabold text-slate-100 tracking-tight">
+          My Notes Workspace
+        </h1>
+        <p class="text-sm text-slate-400 mt-1 font-light">
+          Manage your ideas, guides, and drafts. Backed by secure Postgres database limits.
+        </p>
+      </div>
+      <button id="createNoteBtn" class="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-slate-100 text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-indigo-500/20 transform hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+        </svg>
+        Create New Note
+      </button>
+    </div>
+
+    <!-- Empty State (hidden by default) -->
+    <div id="emptyState" class="hidden p-12 text-center rounded-2xl border border-dashed border-slate-900 bg-slate-950/20">
+      <span class="text-4xl block mb-4">📓</span>
+      <h3 class="text-slate-300 font-semibold mb-1">No notes created yet</h3>
+      <p class="text-xs text-slate-500 max-w-sm mx-auto mb-6">
+        Create your first cloud note to start saving links, drafts, or documentation.
+      </p>
+      <button id="emptyCreateBtn" class="px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-slate-100 text-xs font-semibold rounded-xl hover:bg-slate-800 transition-colors cursor-pointer">
+        Create Your First Note
+      </button>
+    </div>
+
+    <!-- Notes Grid -->
+    <div id="notesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Notes cards populated by JS -->
+    </div>
+  </div>
+
+  <script>
+    import { supabase } from '../../lib/supabase';
+
+    const loadingView = document.getElementById('loadingView');
+    const notesContainer = document.getElementById('notesContainer');
+    const emptyState = document.getElementById('emptyState');
+    const notesGrid = document.getElementById('notesGrid');
+    
+    const createNoteBtn = document.getElementById('createNoteBtn');
+    const emptyCreateBtn = document.getElementById('emptyCreateBtn');
+
+    let currentUserId: string | null = null;
+
+    async function checkAuthAndLoadNotes() {
+      // 1. Session check
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/login';
+        return;
+      }
+
+      currentUserId = session.user.id;
+
+      // 2. Fetch user's notes
+      const { data: notes, error } = await supabase
+        .from('notes')
+        .select('id, title, content, is_public, created_at')
+        .eq('user_id', currentUserId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Notes fetch failed:', error.message);
+        alert('Failed to retrieve workspace notes.');
+        return;
+      }
+
+      // Hide loading spinner, show workspace
+      if (loadingView && notesContainer) {
+        loadingView.classList.add('hidden');
+        notesContainer.classList.remove('hidden');
+      }
+
+      // 3. Render notes
+      if (!notes || notes.length === 0) {
+        if (emptyState) emptyState.classList.remove('hidden');
+      } else {
+        if (emptyState) emptyState.classList.add('hidden');
+        renderNotes(notes);
+      }
+    }
+
+    function renderNotes(notes: any[]) {
+      if (!notesGrid) return;
+      notesGrid.innerHTML = ''; // Clear prior content
+
+      notes.map(note => {
+        const date = new Date(note.created_at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+
+        // Snippet excerpt
+        const snippet = note.content 
+          ? (note.content.length > 120 ? note.content.substring(0, 120) + '...' : note.content)
+          : 'No content written yet.';
+
+        const isPublicBadge = note.is_public
+          ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-500/20 bg-emerald-500/5 text-emerald-400">Public</span>'
+          : '<span class="px-2 py-0.5 rounded text-[10px] font-bold border border-slate-800 bg-slate-900 text-slate-500">Private</span>';
+
+        const card = document.createElement('div');
+        card.className = 'p-5 rounded-2xl border border-slate-900 bg-slate-950/40 hover:border-slate-800 transition-all duration-200 group flex flex-col justify-between';
+        card.innerHTML = `
+          <div>
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <h3 class="font-display font-bold text-slate-200 group-hover:text-indigo-400 transition-colors truncate text-base">
+                ${note.title}
+              </h3>
+              ${isPublicBadge}
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed font-light mb-4 break-words">
+              ${snippet}
+            </p>
+          </div>
+          <div class="flex items-center justify-between border-t border-slate-900/50 pt-4 mt-auto">
+            <span class="text-[10px] text-slate-500 font-mono">${date}</span>
+            <div class="flex items-center gap-3">
+              <button class="delete-btn text-[11px] font-semibold text-red-400/70 hover:text-red-400 cursor-pointer transition-colors" data-id="${note.id}">
+                Delete
+              </button>
+              <a href="/notes/${note.id}" class="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
+                Edit &rarr;
+              </a>
+            </div>
+          </div>
+        `;
+        notesGrid.appendChild(card);
+      });
+
+      // Bind delete actions
+      const deleteButtons = document.querySelectorAll('.delete-btn');
+      deleteButtons.forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const target = e.currentTarget as HTMLButtonElement;
+          const noteId = target.getAttribute('data-id');
+          if (!noteId) return;
+
+          if (confirm('Are you sure you want to delete this note?')) {
+            target.setAttribute('disabled', 'true');
+            target.textContent = 'Deleting...';
+
+            const { error } = await supabase
+              .from('notes')
+              .delete()
+              .eq('id', noteId);
+
+            if (error) {
+              alert(`Delete failed: ${error.message}`);
+              target.removeAttribute('disabled');
+              target.textContent = 'Delete';
+            } else {
+              // Reload notes list
+              checkAuthAndLoadNotes();
+            }
+          }
+        });
+      });
+    }
+
+    // Trigger Note Creation
+    async function createNewNote() {
+      if (!currentUserId) return;
+
+      const triggerBtn = document.getElementById('createNoteBtn') as HTMLButtonElement;
+      triggerBtn.setAttribute('disabled', 'true');
+      triggerBtn.textContent = 'Creating...';
+
+      const { data, error } = await supabase
+        .from('notes')
+        .insert({
+          user_id: currentUserId,
+          title: 'Untitled Draft',
+          content: '',
+          is_public: false
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        alert(`Failed to create note: ${error.message}`);
+        triggerBtn.removeAttribute('disabled');
+        triggerBtn.textContent = 'Create New Note';
+      } else if (data) {
+        window.location.href = `/notes/${data.id}`;
+      }
+    }
+
+    if (createNoteBtn) createNoteBtn.addEventListener('click', createNewNote);
+    if (emptyCreateBtn) emptyCreateBtn.addEventListener('click', createNewNote);
+
+    checkAuthAndLoadNotes();
+  </script>
+</BaseLayout>
