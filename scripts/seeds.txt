@@ -1,0 +1,9 @@
+# Seed topics for the auto-blog generator (one per line, '#' for comments)
+# The generator picks the first unused seed; otherwise it asks the AI for a topic.
+My favorite keyboard shortcuts for fast web development
+Five CSS tricks that make your site feel premium
+Why I chose Supabase over Firebase for auth
+Setting up Google OAuth the right way in 2026
+How I run a website with zero monthly cost
+Local-first vs cloud-first: where your data should live
+A beginner's guide to Astro content collections

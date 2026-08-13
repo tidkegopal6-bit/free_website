@@ -56,6 +56,27 @@ const FALLBACK_MODELS = [
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Scan src/content/blog for slugs already used, so we never create duplicates
+function loadUsedSlugs() {
+  const blogDir = path.join(__dirname, '../src/content/blog');
+  if (!fs.existsSync(blogDir)) return new Set();
+  return new Set(fs.readdirSync(blogDir).map((f) => f.replace(/-(en|hi|mr)\.md$/, '').replace(/\.md$/, '')));
+}
+
+// Read seed topics from scripts/seeds.txt (one per line, # for comments)
+function loadSeeds() {
+  const seedsPath = path.join(__dirname, 'seeds.txt');
+  if (!fs.existsSync(seedsPath)) return [];
+  return fs.readFileSync(seedsPath, 'utf8')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
+}
+
+function slugify(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
 // Call OpenRouter and parse the JSON response, retrying on invalid/truncated JSON
 async function requestJson(apiKey, promptText, model) {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -219,12 +240,28 @@ async function main() {
   console.log(`Using ${useDeepSeek ? `OpenRouter model "${model}"` : 'Gemini 1.5 Flash'} for content generation.`);
 
   let finalTopic = options.topic;
+  const usedSlugs = loadUsedSlugs();
+  const seeds = loadSeeds();
+  const usedTopicsHint = usedSlugs.size > 0
+    ? `\nAlready-covered topics (do NOT repeat these or anything similar): ${[...usedSlugs].slice(-15).join(', ')}.`
+    : '';
+
+  if (!finalTopic) {
+    // Prefer a seed topic from scripts/seeds.txt when provided
+    const unusedSeed = seeds.find((s) => !usedSlugs.has(slugify(s)) || !usedSlugs.has(s));
+    if (unusedSeed) {
+      finalTopic = unusedSeed;
+      console.log(`Using seed topic from seeds.txt: "${finalTopic}"`);
+    }
+  }
+
   if (!finalTopic) {
     console.log(`No topic provided. Auto-generating a topic focusing on ${options.level} (${options.location || 'Anywhere'})...`);
     
     const topicPrompt = `You are a creative content strategist. Generate one high-interest, trending topic for a software developer/tech blog. 
     Focus level: ${options.level}.
     Location Focus: ${options.location || 'Global'}.
+    ${usedTopicsHint}
     Return ONLY the topic title/concept as plain text. Do not include quotes, intro, or explanation.`;
 
     try {
@@ -241,6 +278,8 @@ async function main() {
       process.exit(1);
     }
   }
+
+  const topicSlug = slugify(finalTopic);
 
   // Schema for structured multilingual response
   const responseSchema = {
@@ -314,8 +353,15 @@ Do not include markdown code fences, do not add any commentary outside the JSON 
     console.log(`Articles written successfully! Slug: "${result.slug}"`);
     console.log(`Tags: ${result.tags.join(', ')}`);
 
+    // Dedup guard: never overwrite an existing post
+    const resultSlug = String(result.slug || topicSlug);
+    if (usedSlugs.has(resultSlug)) {
+      console.error(`Aborting: slug "${resultSlug}" already exists. Try a different topic (or pass --topic).`);
+      process.exit(1);
+    }
+
     // Download image
-    const localHeroUrl = await downloadHeroImage(result.imagePrompt, result.slug);
+    const localHeroUrl = await downloadHeroImage(result.imagePrompt, resultSlug);
 
     // Save files
     const blogDir = path.join(__dirname, '../src/content/blog');
@@ -328,7 +374,7 @@ Do not include markdown code fences, do not add any commentary outside the JSON 
     const languages = ['en', 'hi', 'mr'];
     for (const lang of languages) {
       const data = result[lang];
-      const filePath = path.join(blogDir, `${result.slug}-${lang}.md`);
+      const filePath = path.join(blogDir, `${resultSlug}-${lang}.md`);
       
       const fileContent = `---
 title: "${data.title.replace(/"/g, '\\"')}"
