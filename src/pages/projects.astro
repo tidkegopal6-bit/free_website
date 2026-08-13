@@ -242,7 +242,7 @@ const statusConfig: Record<string, { label: string; classes: string; dot: string
       <h2 class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Featured</h2>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="featuredGrid">
         {featuredProjects.map(project => {
-          const status = statusConfig[project.status];
+          const status = statusConfig[project.status] ?? statusConfig.archived!;
           return (
             <article
               data-tags={project.tags.join(',')}
@@ -329,7 +329,7 @@ const statusConfig: Record<string, { label: string; classes: string; dot: string
       <h2 class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">More Projects</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="projectsGrid">
         {otherProjects.map(project => {
-          const status = statusConfig[project.status];
+          const status = statusConfig[project.status] ?? statusConfig.archived!;
           return (
             <article
               data-tags={project.tags.join(',')}

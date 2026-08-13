@@ -7,16 +7,16 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Blog | 🔲 Pending | Markdown-based, SSG, Content Collections |
+| Blog | ✅ Done | Markdown Content Collections + SSG, 2 sample posts, tag filter, reading progress wired |
 | Notes (Public) | 🔲 Pending | Markdown-based, SSG |
-| Notes (Private) | 🔄 InProgress | Client editor & dashboard created, awaiting DB setup |
-| Browser Games | 🔄 InProgress | Client hub and Snake Canvas game created, awaiting DB setup |
-| Projects Showcase | 🔲 Pending | Static data file, SSG |
-| Google Login | 🔄 InProgress | Client login page created, awaiting provider config |
-| User Profiles | 🔄 InProgress | Client profile page & SQL trigger schema prepared |
-| Bookmarks | 🔄 InProgress | Client dashboard created, awaiting DB setup |
-| Reading Progress | 🔄 InProgress | Client scroll tracker component created, awaiting DB setup |
-| Game Scores | 🔄 InProgress | Client-side save triggers created, awaiting DB setup |
+| Notes (Private) | ✅ Done | Editor + dashboard + DB (notes table + RLS live) |
+| Browser Games | ✅ Done | Snake hub + DB (game_scores RLS live) |
+| Projects Showcase | ✅ Done | Static data file, SSG |
+| Google Login | ✅ Done | OAuth client + Supabase provider + redirect verified |
+| User Profiles | ✅ Done | Profile page + SQL trigger schema (profiles RLS live) |
+| Bookmarks | ✅ Done | Dashboard + DB (bookmarks RLS live) |
+| Reading Progress | ✅ Done | ScrollTracker + DB (reading_progress RLS live) |
+| Game Scores | ✅ Done | Save triggers + DB (game_scores RLS live) |
 | Monetization | ⏳ Future | No infra until actively needed |
 
 **Status Legend**: 🔲 Pending | 🔄 InProgress | ✅ Done | ❌ Blocked
@@ -40,9 +40,9 @@
 ---
 
 ## Current Session
-**Working on**: Deployment + database setup — site live on Cloudflare Pages, Supabase schema applied  
+**Working on**: Blog module (Markdown + Content Collections) — completed; fixed 57 pre-existing TS strict errors  
 **Started**: 2026-08-13  
-**Blocked by**: Google OAuth provider credentials (browser task) — login, notes, bookmarks, scores all work once OAuth is wired  
+**Blocked by**: none  
 
 ---
 
@@ -58,4 +58,7 @@ _(Add entries as features are completed)_
 2026-08-13 — Game Upgrades & Global Themes — Done — Added Zen mode, Speed controls, responsive full-window canvas scaling, and 5 global eye-care site themes.
 2026-08-13 — Deployment Pipeline — Done — GitHub repo + 4 Actions secrets, Cloudflare Pages project `free-website` with auto-deploy CI, site live at free-website-ee9.pages.dev.
 2026-08-13 — Supabase Schema — Done — Created profiles, notes, bookmarks, game_scores with RLS + auto-profile trigger on auth.users; verified via pg.
+2026-08-13 — Custom Domain — Done — therisingview.com added to Cloudflare zone + Pages project, nameservers switched from Hostinger (pending propagation).
+2026-08-13 — Blog Module — Done — Content Collections (src/content.config.ts), 2 sample posts, /blog listing with tag filter, /blog/[slug] with reading progress bar + ScrollTracker. reading_progress table + RLS added to schema.
+2026-08-13 — TS Strict Cleanup — Done — Fixed 57 pre-existing type errors (games canvas typing, projects statusConfig, bookmarks form cast); npm run check now passes with @astrojs/check installed.
 ```

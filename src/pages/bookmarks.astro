@@ -96,7 +96,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const toggleFormBtn = document.getElementById('toggleFormBtn');
     const addFormCard = document.getElementById('addFormCard');
     const cancelFormBtn = document.getElementById('cancelFormBtn');
-    const bookmarkForm = document.getElementById('bookmarkForm');
+    const bookmarkForm = document.getElementById('bookmarkForm') as HTMLFormElement;
     const saveBtn = document.getElementById('saveBtn');
 
     // Form Inputs
@@ -194,7 +194,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     // Default "All Links" trigger
     const allFilterBtn = filterRow?.querySelector('[data-tag="all"]') as HTMLButtonElement;
-    allFilterBtn?.addEventListener('click', (e) => {
+    allFilterBtn?.addEventListener('click', () => {
       updateActiveFilterStyle(allFilterBtn);
       activeFilterTag = 'all';
       applyFilterAndRender();

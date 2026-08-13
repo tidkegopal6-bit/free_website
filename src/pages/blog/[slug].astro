@@ -1,0 +1,240 @@
+---
+// src/pages/blog/[slug].astro
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+import { render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map(post => {
+    return {
+      params: { slug: post.id },
+      props: { post, posts }
+    };
+  });
+}
+
+const { post, posts } = Astro.props;
+const { Content } = await render(post);
+
+// Helper to parse language and base slug
+const cleanId = post.id.replace(/\.md$/, '');
+const langMatch = cleanId.match(/-([a-z]{2})$/);
+const currentLang = langMatch ? langMatch[1] : 'en';
+const baseSlug = cleanId.replace(/-[a-z]{2}$/, '');
+
+// Calculate reading time
+const wordCount = post.body ? post.body.split(/\s+/).length : 0;
+const readTime = Math.max(1, Math.round(wordCount / 200));
+
+// Find available translations
+const langNames = {
+  en: 'English 🇬🇧',
+  hi: 'Hindi 🇮🇳',
+  mr: 'Marathi 🇮🇳'
+};
+
+const translations = posts.filter(p => {
+  const pCleanId = p.id.replace(/\.md$/, '');
+  const pLangMatch = pCleanId.match(/-([a-z]{2})$/);
+  const pLang = pLangMatch ? pLangMatch[1] : 'en';
+  const pBaseSlug = pCleanId.replace(/-[a-z]{2}$/, '');
+  
+  return pBaseSlug === baseSlug && pLang !== currentLang;
+}).map(p => {
+  const pCleanId = p.id.replace(/\.md$/, '');
+  const pLangMatch = pCleanId.match(/-([a-z]{2})$/);
+  const pLang = pLangMatch ? pLangMatch[1] : 'en' as keyof typeof langNames;
+  return {
+    code: pLang,
+    name: langNames[pLang] || pLang,
+    url: `/blog/${p.id}`
+  };
+});
+---
+
+<BaseLayout 
+  title={post.data.title} 
+  description={post.data.description}
+  ogImage={post.data.heroImage}
+>
+  <!-- Reading Progress Bar -->
+  <div id="scrollProgressBar" class="fixed top-[64px] left-0 h-[3px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 w-0 z-50 transition-all duration-75"></div>
+
+  <article class="max-w-3xl mx-auto space-y-8">
+    
+    <!-- Navigation Back & Translation Selector -->
+    <div class="flex flex-wrap items-center justify-between gap-4 text-xs font-mono border-b border-slate-900 pb-4">
+      <a href="/blog" class="text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition-colors group">
+        <span class="group-hover:-translate-x-0.5 transition-transform">&larr;</span> Back to Blog
+      </a>
+      
+      {translations.length > 0 && (
+        <div class="flex items-center gap-2 bg-slate-900/40 border border-slate-900 px-3 py-1 rounded-lg">
+          <span class="text-slate-500">Read in:</span>
+          {translations.map((trans, idx) => (
+            <>
+              {idx > 0 && <span class="text-slate-800">|</span>}
+              <a href={trans.url} class="text-indigo-400 hover:text-indigo-300 font-semibold hover:underline">
+                {trans.name}
+              </a>
+            </>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <!-- Header metadata -->
+    <div class="space-y-4 text-center md:text-left">
+      <div class="flex flex-wrap justify-center md:justify-start items-center gap-3 text-xs text-slate-500 font-mono">
+        <time datetime={post.data.pubDate.toISOString()}>
+          {post.data.pubDate.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </time>
+        <span>•</span>
+        <span>{readTime} min read</span>
+        <span>•</span>
+        <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-400 uppercase">
+          {langNames[currentLang as keyof typeof langNames] || currentLang}
+        </span>
+      </div>
+
+      <h1 class="text-2xl sm:text-4xl font-display font-extrabold text-slate-100 tracking-tight leading-tight">
+        {post.data.title}
+      </h1>
+      
+      <p class="text-slate-400 text-sm sm:text-base italic max-w-2xl font-light">
+        {post.data.description}
+      </p>
+    </div>
+
+    <!-- Hero Image -->
+    {post.data.heroImage && (
+      <div class="aspect-[21/9] w-full overflow-hidden rounded-2xl border border-slate-900 bg-slate-900 shadow-2xl">
+        <img 
+          src={post.data.heroImage} 
+          alt={post.data.title}
+          class="h-full w-full object-cover"
+        />
+      </div>
+    )}
+
+    <!-- Article Content -->
+    <div class="prose-custom text-slate-350 leading-relaxed text-sm sm:text-base space-y-6 pt-4">
+      <Content />
+    </div>
+
+    <!-- Article Tags -->
+    <div class="pt-8 border-t border-slate-900 flex flex-wrap gap-2">
+      {post.data.tags.map(tag => (
+        <a 
+          href={`/blog?tag=${tag}`} 
+          class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-slate-200 border border-slate-800 transition-colors"
+        >
+          #{tag}
+        </a>
+      ))}
+    </div>
+  </article>
+
+  <!-- Reading Progress Script -->
+  <script>
+    const progressBar = document.getElementById('scrollProgressBar');
+    
+    window.addEventListener('scroll', () => {
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY;
+      
+      const scrollPercent = (scrollTop / (documentHeight - windowHeight)) * 100;
+      if (progressBar) {
+        progressBar.style.width = `${Math.min(100, Math.max(0, scrollPercent))}%`;
+      }
+    });
+  </script>
+</BaseLayout>
+
+<style is:global>
+  /* Premium vanilla styling for markdown content */
+  .prose-custom h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--theme-page-heading);
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    letter-spacing: -0.025em;
+  }
+  .prose-custom h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--theme-page-heading);
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .prose-custom p {
+    margin-bottom: 1.25rem;
+    line-height: 1.75;
+  }
+  .prose-custom ul, .prose-custom ol {
+    margin-left: 1.5rem;
+    margin-bottom: 1.25rem;
+    list-style-type: disc;
+    space-y: 0.5rem;
+  }
+  .prose-custom ol {
+    list-style-type: decimal;
+  }
+  .prose-custom li {
+    margin-bottom: 0.5rem;
+    padding-left: 0.25rem;
+  }
+  .prose-custom blockquote {
+    border-left: 4px solid #6366f1;
+    background-color: rgba(99, 102, 241, 0.05);
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: 0 0.75rem 0.75rem 0;
+    font-style: italic;
+    color: var(--theme-text);
+  }
+  .prose-custom code {
+    font-family: monospace;
+    font-size: 0.9em;
+    background-color: rgba(30, 41, 59, 0.4);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.375rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .prose-custom pre {
+    background-color: #0b0f19 !important;
+    padding: 1.25rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    overflow-x: auto;
+    margin: 1.5rem 0;
+  }
+  .prose-custom pre code {
+    background-color: transparent;
+    padding: 0;
+    border: none;
+    font-size: 0.875em;
+  }
+  .prose-custom strong {
+    color: var(--theme-page-heading);
+    font-weight: 600;
+  }
+  .prose-custom a {
+    color: #818cf8;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+  .prose-custom a:hover {
+    color: #a5b4fc;
+  }
+</style>

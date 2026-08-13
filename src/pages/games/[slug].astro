@@ -198,8 +198,8 @@ if (slug !== 'snake') {
     const slug = gameWrapper?.getAttribute('data-slug') || 'snake';
 
     // Game Core Canvas elements
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
     const overlay = document.getElementById('gameOverlay');
     const overlayTitle = document.getElementById('overlayTitle');
     const overlayText = document.getElementById('overlayText');
@@ -269,11 +269,12 @@ if (slug !== 'snake') {
     // Option state variables
     let isZenMode = false;
     let startingSpeed = 160;
-    let currentThemeName = 'dark';
+    type ThemeName = keyof typeof THEMES;
+    let currentThemeName: ThemeName = 'dark';
 
     function syncCanvasThemeWithGlobal() {
       const globalTheme = document.documentElement.getAttribute('data-theme') || 'slate-dark';
-      let targetCanvasTheme = 'dark';
+      let targetCanvasTheme: ThemeName = 'dark';
       
       if (globalTheme === 'warm-sepi') {
         targetCanvasTheme = 'gameboy';
@@ -345,7 +346,7 @@ if (slug !== 'snake') {
 
     // Speed Selector listener
     gameSpeedSelector?.addEventListener('change', (e) => {
-      const target = e.target;
+      const target = e.target as HTMLSelectElement;
       startingSpeed = parseInt(target.value, 10);
       if (!isGameActive) {
         gameSpeed = startingSpeed;
@@ -354,8 +355,8 @@ if (slug !== 'snake') {
 
     // Theme Selector listener
     gameThemeSelector?.addEventListener('change', (e) => {
-      const target = e.target;
-      currentThemeName = target.value;
+      const target = e.target as HTMLSelectElement;
+      currentThemeName = target.value as ThemeName;
       drawGame();
     });
 
@@ -417,15 +418,15 @@ if (slug !== 'snake') {
 
     window.addEventListener('resize', resizeCanvas);
 
-    let snake = [];
+    let snake: { x: number; y: number }[] = [];
     let direction = 'right';
     let food = { x: 0, y: 0 };
     let score = 0;
     let localHighscore = 0;
-    let gameInterval = null;
+    let gameInterval: ReturnType<typeof setInterval> | null = null;
     let gameSpeed = 160; // milliseconds
     let isGameActive = false;
-    let currentUserId = null;
+    let currentUserId: string | null = null;
 
     async function initPage() {
       // 1. Get active session state
@@ -480,7 +481,7 @@ if (slug !== 'snake') {
         
         scores.forEach((s, idx) => {
           const rank = idx + 1;
-          const username = s.profiles?.username || 'player';
+          const username = (s.profiles as unknown as { username?: string } | null)?.username || 'player';
           
           let rankBadge = `${rank}`;
           if (rank === 1) rankBadge = '🥇';
@@ -575,7 +576,7 @@ if (slug !== 'snake') {
     }
 
     function moveSnake() {
-      const head = { ...snake[0] };
+      const head = { ...snake[0]! };
 
       switch (direction) {
         case 'up': head.y -= 1; break;
@@ -597,13 +598,13 @@ if (slug !== 'snake') {
       // Check if food eaten
       if (head.x === food.x && head.y === food.y) {
         score += 10;
-        if (currentScoreEl) currentScoreEl.textContent = score;
+        if (currentScoreEl) currentScoreEl.textContent = score.toString();
         spawnFood();
         
         // Speed scaling trigger
         if (score % 50 === 0 && gameSpeed > 60) {
           gameSpeed -= 10;
-          clearInterval(gameInterval);
+          clearInterval(gameInterval!);
           gameInterval = setInterval(gameTick, gameSpeed);
         }
       } else {
@@ -618,7 +619,7 @@ if (slug !== 'snake') {
       // Self crash (skip index 0 head) - disabled in Zen Mode
       if (!isZenMode) {
         for (let i = 1; i < snake.length; i++) {
-          if (head.x === snake[i].x && head.y === snake[i].y) {
+          if (head!.x === snake[i]!.x && head!.y === snake[i]!.y) {
             triggerGameOver();
             return;
           }
@@ -628,7 +629,7 @@ if (slug !== 'snake') {
 
     async function triggerGameOver() {
       isGameActive = false;
-      clearInterval(gameInterval);
+      clearInterval(gameInterval!);
 
       if (gameStatusIndicator) {
         gameStatusIndicator.textContent = 'Game Over';
@@ -683,7 +684,7 @@ if (slug !== 'snake') {
       }
     }
 
-    function updateSyncTextStatus(status) {
+    function updateSyncTextStatus(status: string) {
       const dot = document.getElementById('syncIndicatorDot');
       const text = document.getElementById('syncIndicatorText');
       if (!dot || !text) return;

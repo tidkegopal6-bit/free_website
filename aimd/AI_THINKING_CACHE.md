@@ -107,5 +107,21 @@ This is the safest default — better to be locked out than to leak data.
 
 ---
 
+## DECISION — Automated AI Blog Generator — 2026-08-13
+**Files read**:
+- `aimd/PROJECT_STATUS.md` — Status of features, Blog is pending
+- `aimd/DECISIONS.md` — SSR & SSG setup (Astro static default + SSR pages)
+- `.cursor/rules/01-zero-cost-guard.mdc` — Free-tier pricing rules
+- `.cursor/rules/12-feature-rules.mdc` — Blog collection & frontmatter constraints
+- `src/layouts/BaseLayout.astro` — Layout variables & styles
+- `src/content.config.ts` — Collection schemas (blog)
+**Decision**: Implement the blog template pages (/blog and /blog/[slug]) using Astro Content Collections. Create a Node.js automation script (`scripts/generate-blog.js`) using standard `fetch` to query the free Google Gemini 1.5 Flash API and generate SEO-optimized markdown files. Use Pollinations AI for free image generation. Provide automation options: a scheduled GitHub Action cron and a Windows startup batch file.
+**Reason**: Keeps the site static and hosting free ($0). Gemini 1.5 Flash API is free without credit card. Pollinations AI is free. Automating via GitHub Actions means the site updates itself without local execution requirements.
+**Cost impact**: None ($0). Fits within Gemini API and GitHub Actions free tiers.
+**Security impact**: Requires repository secret `GEMINI_API_KEY` for GitHub Actions workflow; no client exposure.
+**Status**: planned
+
+---
+
 _(Add new entries above this line as the project grows)_
 

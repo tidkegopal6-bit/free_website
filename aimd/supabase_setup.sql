@@ -20,12 +20,15 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read profiles" ON profiles;
 CREATE POLICY "Anyone can read profiles"
   ON profiles FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
 CREATE POLICY "Users can insert own profile"
   ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   USING (auth.uid() = id)
@@ -46,9 +49,11 @@ CREATE TABLE IF NOT EXISTS game_scores (
 
 ALTER TABLE game_scores ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read game scores" ON game_scores;
 CREATE POLICY "Anyone can read game scores"
   ON game_scores FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can insert own scores" ON game_scores;
 CREATE POLICY "Users can insert own scores"
   ON game_scores FOR INSERT
   WITH CHECK (auth.uid() = user_id);
@@ -77,19 +82,23 @@ CREATE TABLE IF NOT EXISTS notes (
 
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own notes" ON notes;
 CREATE POLICY "Users can read own notes"
   ON notes FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own notes" ON notes;
 CREATE POLICY "Users can insert own notes"
   ON notes FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own notes" ON notes;
 CREATE POLICY "Users can update own notes"
   ON notes FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own notes" ON notes;
 CREATE POLICY "Users can delete own notes"
   ON notes FOR DELETE
   USING (auth.uid() = user_id);
@@ -103,6 +112,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS notes_updated_at ON notes;
 CREATE TRIGGER notes_updated_at
   BEFORE UPDATE ON notes
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -125,6 +135,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 
 -- Single policy covers SELECT, INSERT, UPDATE, DELETE
+DROP POLICY IF EXISTS "Users can manage own bookmarks" ON bookmarks;
 CREATE POLICY "Users can manage own bookmarks"
   ON bookmarks FOR ALL
   USING (auth.uid() = user_id)
@@ -132,6 +143,32 @@ CREATE POLICY "Users can manage own bookmarks"
 
 CREATE INDEX IF NOT EXISTS bookmarks_user_idx
   ON bookmarks (user_id, created_at DESC);
+
+
+-- ============================================================
+-- TABLE 5: reading_progress
+-- Private per-user blog reading progress, one row per (user, post)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS reading_progress (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  post_slug TEXT NOT NULL,
+  progress_pct INTEGER NOT NULL DEFAULT 0 CHECK (progress_pct BETWEEN 0 AND 100),
+  completed BOOLEAN NOT NULL DEFAULT false,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, post_slug)
+);
+
+ALTER TABLE reading_progress ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own reading progress" ON reading_progress;
+CREATE POLICY "Users can manage own reading progress"
+  ON reading_progress FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS reading_progress_user_idx
+  ON reading_progress (user_id, updated_at DESC);
 
 
 -- ============================================================

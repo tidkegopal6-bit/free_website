@@ -1,0 +1,78 @@
+name: Automated Multilingual AI Blog Generator
+
+on:
+  schedule:
+    # Runs daily at 06:00 UTC (11:30 AM IST)
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    # Allows manual trigger from the GitHub Actions UI
+    inputs:
+      topic:
+        description: 'Optional specific topic for the blog post'
+        required: false
+        type: string
+      level:
+        description: 'Geographical focus level'
+        required: true
+        default: 'global'
+        type: choice
+        options:
+          - global
+          - local
+          - state
+          - city
+      location:
+        description: 'Location focus (e.g. Maharashtra, Mumbai)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Create Blog Post
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          TOPIC_ARG=""
+          if [ ! -z "${{ github.event.inputs.topic }}" ]; then
+            TOPIC_ARG="--topic \"${{ github.event.inputs.topic }}\""
+          fi
+          
+          LOCATION_ARG=""
+          if [ ! -z "${{ github.event.inputs.location }}" ]; then
+            LOCATION_ARG="--location \"${{ github.event.inputs.location }}\""
+          fi
+          
+          LEVEL_ARG="--level global"
+          if [ ! -z "${{ github.event.inputs.level }}" ]; then
+            LEVEL_ARG="--level ${{ github.event.inputs.level }}"
+          fi
+
+          node scripts/generate-blog.js $TOPIC_ARG $LEVEL_ARG $LOCATION_ARG
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are any changes (generated markdown files or images)
+          if [ -n "$(git status --porcelain)" ]; then
+            git add src/content/blog/ public/assets/blog/
+            git commit -m "chore: auto-generate multilingual blog post [skip ci]"
+            git push origin main
+            echo "Changes pushed successfully!"
+          else
+            echo "No new blog posts generated."
+          fi
