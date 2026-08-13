@@ -7,7 +7,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Blog | ✅ Done | Markdown Content Collections + SSG, 2 sample posts, tag filter, reading progress wired |
+| Blog | ✅ Done | AI-driven multilingual SSG with auto-publishing |
 | Notes (Public) | 🔲 Pending | Markdown-based, SSG |
 | Notes (Private) | ✅ Done | Editor + dashboard + DB (notes table + RLS live) |
 | Browser Games | ✅ Done | Snake hub + DB (game_scores RLS live) |
@@ -29,18 +29,19 @@
 |---|---|---|
 | Astro project init | ✅ Done | Project scaffolded at root |
 | Tailwind setup | ✅ Done | Configured in astro.config.mjs |
-| Supabase project created | ✅ Done | `rmkgjcwfwpykmxdeiirv` — free tier, ap-south-1 |
+| Supabase project created | ✅ Done | `rmkgjcwfwpykmxdeiirv` — free tier, ap-northeast-2 |
 | GitHub repo created | ✅ Done | `tidkegopal6-bit/free_website` |
 | Cloudflare Pages connected | ✅ Done | Auto-deploy via GitHub Actions on push to main |
-| Hostinger DNS → Cloudflare | 🔲 Pending | Point domain to Cloudflare Pages |
+| Hostinger DNS → Cloudflare | 🔄 InProgress | therisingview.com attached to Pages; NS propagation in progress (zone `093993d2d7...`) |
 | `.env` configured | ✅ Done | Template env.example created |
-| RLS enabled on all tables | ✅ Done | profiles, notes, bookmarks, game_scores — all verified `rowsecurity = true` |
+| RLS enabled on all tables | ✅ Done | profiles, notes, bookmarks, game_scores, reading_progress — all verified `rowsecurity = true` |
 | Google OAuth configured | ✅ Done | Google OAuth client `932272915307-...` wired into Supabase; redirect verified via /auth/v1/authorize |
+| AI blog provider | ✅ Done | OpenRouter free tier (gpt-oss-20b:free w/ fallback chain + retry/backoff); `OPENROUTER_API_KEY` secret set; DeepSeek V4 Flash available via `--model deepseek/deepseek-v4-flash` if credits added |
 
 ---
 
 ## Current Session
-**Working on**: Blog module (Markdown + Content Collections) — completed; fixed 57 pre-existing TS strict errors  
+**Working on**: AI blog generator switched from Gemini to OpenRouter (DeepSeek V4 Flash is no longer `:free` there; free models chosen) — first auto-generated 3-lang post published  
 **Started**: 2026-08-13  
 **Blocked by**: none  
 
@@ -61,4 +62,6 @@ _(Add entries as features are completed)_
 2026-08-13 — Custom Domain — Done — therisingview.com added to Cloudflare zone + Pages project, nameservers switched from Hostinger (pending propagation).
 2026-08-13 — Blog Module — Done — Content Collections (src/content.config.ts), 2 sample posts, /blog listing with tag filter, /blog/[slug] with reading progress bar + ScrollTracker. reading_progress table + RLS added to schema.
 2026-08-13 — TS Strict Cleanup — Done — Fixed 57 pre-existing type errors (games canvas typing, projects statusConfig, bookmarks form cast); npm run check now passes with @astrojs/check installed.
+2026-08-13 — Automated AI Blog Generator — Done — Multilingual blog templates (/blog, /blog/[slug]) built with language/tag filters, automated Gemini 1.5 Flash script (scripts/generate-blog.js), Pollinations AI image downloader, GitHub Actions scheduler, and local Windows startup script.
+2026-08-13 — AI Provider Switch — Done — DeepSeek V4 Flash is no longer `:free` on OpenRouter; generator now uses OpenRouter free tier (gpt-oss-20b:free + fallback chain + 429 retry/backoff), Gemini kept as optional provider, `--model` flag added. First auto-generated post (EN/HI/MR) built, tested locally, and pushed (551be3b).
 ```
