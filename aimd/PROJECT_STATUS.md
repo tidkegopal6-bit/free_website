@@ -29,20 +29,20 @@
 |---|---|---|
 | Astro project init | ✅ Done | Project scaffolded at root |
 | Tailwind setup | ✅ Done | Configured in astro.config.mjs |
-| Supabase project created | 🔲 Pending | Free tier project |
-| GitHub repo created | 🔲 Pending | |
-| Cloudflare Pages connected | 🔲 Pending | Connect to GitHub repo |
+| Supabase project created | ✅ Done | `rmkgjcwfwpykmxdeiirv` — free tier, ap-south-1 |
+| GitHub repo created | ✅ Done | `tidkegopal6-bit/free_website` |
+| Cloudflare Pages connected | ✅ Done | Auto-deploy via GitHub Actions on push to main |
 | Hostinger DNS → Cloudflare | 🔲 Pending | Point domain to Cloudflare Pages |
 | `.env` configured | ✅ Done | Template env.example created |
-| RLS enabled on all tables | 🔄 InProgress | SQL scripts prepared for profiles, notes, bookmarks, and score tables |
-| Google OAuth configured | 🔄 InProgress | Client-side integration code implemented |
+| RLS enabled on all tables | ✅ Done | profiles, notes, bookmarks, game_scores — all verified `rowsecurity = true` |
+| Google OAuth configured | 🔄 InProgress | Client-side integration done; needs Google Cloud OAuth client + provider config in Supabase |
 
 ---
 
 ## Current Session
-**Working on**: Added site-wide eye-protection themes and Snake game upgrades (Zen mode, Speed controls, Fullscreen canvas resizing)  
+**Working on**: Deployment + database setup — site live on Cloudflare Pages, Supabase schema applied  
 **Started**: 2026-08-13  
-**Blocked by**: none  
+**Blocked by**: Google OAuth provider credentials (browser task) — login, notes, bookmarks, scores all work once OAuth is wired  
 
 ---
 
@@ -56,4 +56,6 @@ _(Add entries as features are completed)_
 2026-08-13 — Bookmarks & Reading Progress — Done — Created src/pages/bookmarks.astro and src/components/blog/ScrollTracker.astro.
 2026-08-13 — Browser Games & Leaderboards — Done — Created src/pages/games/index.astro and src/pages/games/[slug].astro with D-Pad controls and score auto-saves.
 2026-08-13 — Game Upgrades & Global Themes — Done — Added Zen mode, Speed controls, responsive full-window canvas scaling, and 5 global eye-care site themes.
+2026-08-13 — Deployment Pipeline — Done — GitHub repo + 4 Actions secrets, Cloudflare Pages project `free-website` with auto-deploy CI, site live at free-website-ee9.pages.dev.
+2026-08-13 — Supabase Schema — Done — Created profiles, notes, bookmarks, game_scores with RLS + auto-profile trigger on auth.users; verified via pg.
 ```
