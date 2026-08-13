@@ -35,7 +35,7 @@
 | Hostinger DNS → Cloudflare | 🔲 Pending | Point domain to Cloudflare Pages |
 | `.env` configured | ✅ Done | Template env.example created |
 | RLS enabled on all tables | ✅ Done | profiles, notes, bookmarks, game_scores — all verified `rowsecurity = true` |
-| Google OAuth configured | 🔄 InProgress | Client-side integration done; needs Google Cloud OAuth client + provider config in Supabase |
+| Google OAuth configured | ✅ Done | Google OAuth client `932272915307-...` wired into Supabase; redirect verified via /auth/v1/authorize |
 
 ---
 
