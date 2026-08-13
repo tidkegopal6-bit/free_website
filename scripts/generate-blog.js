@@ -14,6 +14,7 @@ function parseArgs() {
     level: 'global',
     location: '',
     provider: 'deepseek',
+    model: '',
     apiKey: process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY || ''
   };
 
@@ -33,11 +34,27 @@ function parseArgs() {
     } else if (args[i] === '--provider' && args[i + 1]) {
       options.provider = args[i + 1];
       i++;
+    } else if (args[i] === '--model' && args[i + 1]) {
+      options.model = args[i + 1];
+      i++;
     }
   }
 
   return options;
 }
+
+// Default free model on OpenRouter (no credits required)
+const DEFAULT_MODEL = 'openai/gpt-oss-20b:free';
+
+// Fallback free models tried in order when the default is rate-limited
+const FALLBACK_MODELS = [
+  'google/gemma-4-31b-it:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'poolside/laguna-s-2.1:free',
+  'cohere/north-mini-code:free'
+];
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Call Gemini API (OpenAI-compatible response mode)
 async function callGemini(apiKey, promptText, jsonSchema = null) {
@@ -84,43 +101,63 @@ async function callGemini(apiKey, promptText, jsonSchema = null) {
   return text;
 }
 
-// Call DeepSeek V4 Flash (free) via OpenRouter — OpenAI-compatible API
-async function callDeepSeek(apiKey, promptText) {
+// Call OpenRouter — OpenAI-compatible API. Defaults to a free model (no credits needed);
+// pass --model to use a paid one (e.g. deepseek/deepseek-v4-flash) if you have credits.
+// Retries with exponential backoff and falls back to other free models on 429 (rate limit).
+async function callOpenRouter(apiKey, promptText, model = DEFAULT_MODEL) {
   const url = 'https://openrouter.ai/api/v1/chat/completions';
+  const modelChain = model.includes(':free') && model === DEFAULT_MODEL
+    ? [DEFAULT_MODEL, ...FALLBACK_MODELS]
+    : [model];
+  let lastError = null;
 
-  const requestBody = {
-    model: 'deepseek/deepseek-v4-flash:free',
-    messages: [
-      { role: 'system', content: 'You are a professional multilingual tech blogger. Always respond with valid JSON only, matching the exact structure requested. No markdown fences, no commentary.' },
-      { role: 'user', content: promptText }
-    ],
-    response_format: { type: 'json_object' }
-  };
+  for (const currentModel of modelChain) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const requestBody = {
+        model: currentModel,
+        messages: [
+          { role: 'system', content: 'You are a professional multilingual tech blogger. Always respond with valid JSON only, matching the exact structure requested. No markdown fences, no commentary.' },
+          { role: 'user', content: promptText }
+        ],
+        response_format: { type: 'json_object' }
+      };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': 'https://github.com/tidkegopal6-bit/free_website',
-      'X-Title': 'The RISIING Auto Blog Generator'
-    },
-    body: JSON.stringify(requestBody)
-  });
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://github.com/tidkegopal6-bit/free_website',
+          'X-Title': 'The RISIING Auto Blog Generator'
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`DeepSeek/OpenRouter API returned error ${response.status}: ${errorText}`);
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content;
+        if (text) {
+          return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        }
+        lastError = new Error('OpenRouter API returned an empty response');
+      } else {
+        const errorText = await response.text();
+        lastError = new Error(`OpenRouter API returned error ${response.status}: ${errorText}`);
+        if (response.status === 429) {
+          console.warn(`Rate limited on "${currentModel}" (attempt ${attempt + 1}/3). Retrying in ${(attempt + 1) * 10}s...`);
+          await sleep((attempt + 1) * 10000);
+          continue;
+        }
+        throw lastError;
+      }
+    }
+    if (currentModel !== modelChain[modelChain.length - 1]) {
+      console.warn(`Switching to fallback model...`);
+      await sleep(5000);
+    }
   }
 
-  const data = await response.json();
-  const text = data.choices?.[0]?.message?.content;
-  if (!text) {
-    throw new Error('DeepSeek/OpenRouter API returned an empty response');
-  }
-
-  // Clean potential markdown fences around the JSON
-  return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  throw lastError || new Error('All models failed');
 }
 
 // Download image and save locally
@@ -159,9 +196,10 @@ async function main() {
 
   const useDeepSeek = options.provider === 'deepseek';
   if (useDeepSeek && options.apiKey === process.env.GEMINI_API_KEY) {
-    console.warn('Provider is deepseek but only GEMINI_API_KEY is set — DeepSeek calls will likely fail. Set OPENROUTER_API_KEY.');
+    console.warn('Provider is deepseek but only GEMINI_API_KEY is set — OpenRouter calls will likely fail. Set OPENROUTER_API_KEY.');
   }
-  console.log(`Using ${useDeepSeek ? 'DeepSeek V4 Flash (free) via OpenRouter' : 'Gemini 1.5 Flash'} for content generation.`);
+  const model = options.model || DEFAULT_MODEL;
+  console.log(`Using ${useDeepSeek ? `OpenRouter model "${model}"` : 'Gemini 1.5 Flash'} for content generation.`);
 
   let finalTopic = options.topic;
   if (!finalTopic) {
@@ -174,7 +212,7 @@ async function main() {
 
     try {
       if (useDeepSeek) {
-        const jsonText = await callDeepSeek(options.apiKey, `${topicPrompt} Respond as a JSON object exactly like this: {"topic": "..."}`);
+        const jsonText = await callOpenRouter(options.apiKey, `${topicPrompt} Respond as a JSON object exactly like this: {"topic": "..."}`, model);
         finalTopic = JSON.parse(jsonText).topic?.trim();
       } else {
         finalTopic = (await callGemini(options.apiKey, topicPrompt)).trim();
@@ -250,10 +288,10 @@ ${jsonStructureDescription}
 
 Do not include markdown code fences, do not add any commentary outside the JSON object. Return ONLY the JSON object.`;
 
-  console.log(`Requesting ${useDeepSeek ? 'DeepSeek V4 Flash' : 'Gemini'} to write the articles...`);
+  console.log(`Requesting ${useDeepSeek ? model : 'Gemini'} to write the articles...`);
   try {
     const rawResult = useDeepSeek
-      ? await callDeepSeek(options.apiKey, deepSeekBlogPrompt)
+      ? await callOpenRouter(options.apiKey, deepSeekBlogPrompt, model)
       : await callGemini(options.apiKey, blogPrompt, responseSchema);
     const result = JSON.parse(rawResult);
 
