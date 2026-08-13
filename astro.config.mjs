@@ -6,9 +6,9 @@ import cloudflare from '@astrojs/cloudflare';
 let sitemap;
 try { sitemap = (await import('@astrojs/sitemap')).default; } catch {}
 
-// ⚠️ Update 'site' to your custom domain after first Cloudflare deploy
+// Custom domain — Cloudflare Pages custom domain, DNS via Cloudflare zone
 export default defineConfig({
-  site: 'https://therising.pages.dev',
+  site: 'https://therisingview.com',
   adapter: cloudflare(),
   integrations: [
     tailwind(),
