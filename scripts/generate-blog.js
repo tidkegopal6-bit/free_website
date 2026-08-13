@@ -56,6 +56,22 @@ const FALLBACK_MODELS = [
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Call OpenRouter and parse the JSON response, retrying on invalid/truncated JSON
+async function requestJson(apiKey, promptText, model) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const raw = await callOpenRouter(apiKey, promptText, model);
+      return JSON.parse(raw);
+    } catch (err) {
+      const isParseError = err instanceof SyntaxError || /JSON|Unexpected|Expected/i.test(err.message);
+      if (!isParseError || attempt === 2) throw err;
+      console.warn(`Response was invalid/truncated JSON (attempt ${attempt + 1}/3). Retrying in ${(attempt + 1) * 15}s...`);
+      await sleep((attempt + 1) * 15000);
+    }
+  }
+  throw new Error('Could not obtain valid JSON from the API');
+}
+
 // Call Gemini API (OpenAI-compatible response mode)
 async function callGemini(apiKey, promptText, jsonSchema = null) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -115,6 +131,7 @@ async function callOpenRouter(apiKey, promptText, model = DEFAULT_MODEL) {
     for (let attempt = 0; attempt < 3; attempt++) {
       const requestBody = {
         model: currentModel,
+        max_tokens: 6000,
         messages: [
           { role: 'system', content: 'You are a professional multilingual tech blogger. Always respond with valid JSON only, matching the exact structure requested. No markdown fences, no commentary.' },
           { role: 'user', content: promptText }
@@ -212,8 +229,8 @@ async function main() {
 
     try {
       if (useDeepSeek) {
-        const jsonText = await callOpenRouter(options.apiKey, `${topicPrompt} Respond as a JSON object exactly like this: {"topic": "..."}`, model);
-        finalTopic = JSON.parse(jsonText).topic?.trim();
+        const jsonResult = await requestJson(options.apiKey, `${topicPrompt} Respond as a JSON object exactly like this: {"topic": "..."}`, model);
+        finalTopic = jsonResult.topic?.trim();
       } else {
         finalTopic = (await callGemini(options.apiKey, topicPrompt)).trim();
       }
@@ -290,10 +307,9 @@ Do not include markdown code fences, do not add any commentary outside the JSON 
 
   console.log(`Requesting ${useDeepSeek ? model : 'Gemini'} to write the articles...`);
   try {
-    const rawResult = useDeepSeek
-      ? await callOpenRouter(options.apiKey, deepSeekBlogPrompt, model)
-      : await callGemini(options.apiKey, blogPrompt, responseSchema);
-    const result = JSON.parse(rawResult);
+    const result = useDeepSeek
+      ? await requestJson(options.apiKey, deepSeekBlogPrompt, model)
+      : JSON.parse(await callGemini(options.apiKey, blogPrompt, responseSchema));
 
     console.log(`Articles written successfully! Slug: "${result.slug}"`);
     console.log(`Tags: ${result.tags.join(', ')}`);
