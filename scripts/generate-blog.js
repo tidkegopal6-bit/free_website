@@ -13,7 +13,8 @@ function parseArgs() {
     topic: '',
     level: 'global',
     location: '',
-    apiKey: process.env.GEMINI_API_KEY || ''
+    provider: 'deepseek',
+    apiKey: process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY || ''
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -29,13 +30,16 @@ function parseArgs() {
     } else if (args[i] === '--apiKey' && args[i + 1]) {
       options.apiKey = args[i + 1];
       i++;
+    } else if (args[i] === '--provider' && args[i + 1]) {
+      options.provider = args[i + 1];
+      i++;
     }
   }
 
   return options;
 }
 
-// Call Gemini API
+// Call Gemini API (OpenAI-compatible response mode)
 async function callGemini(apiKey, promptText, jsonSchema = null) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   
@@ -80,6 +84,45 @@ async function callGemini(apiKey, promptText, jsonSchema = null) {
   return text;
 }
 
+// Call DeepSeek V4 Flash (free) via OpenRouter — OpenAI-compatible API
+async function callDeepSeek(apiKey, promptText) {
+  const url = 'https://openrouter.ai/api/v1/chat/completions';
+
+  const requestBody = {
+    model: 'deepseek/deepseek-v4-flash:free',
+    messages: [
+      { role: 'system', content: 'You are a professional multilingual tech blogger. Always respond with valid JSON only, matching the exact structure requested. No markdown fences, no commentary.' },
+      { role: 'user', content: promptText }
+    ],
+    response_format: { type: 'json_object' }
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://github.com/tidkegopal6-bit/free_website',
+      'X-Title': 'The RISIING Auto Blog Generator'
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`DeepSeek/OpenRouter API returned error ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) {
+    throw new Error('DeepSeek/OpenRouter API returned an empty response');
+  }
+
+  // Clean potential markdown fences around the JSON
+  return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+}
+
 // Download image and save locally
 async function downloadHeroImage(imagePrompt, slug) {
   const assetsDir = path.join(__dirname, '../public/assets/blog');
@@ -110,9 +153,15 @@ async function main() {
   const options = parseArgs();
 
   if (!options.apiKey) {
-    console.error('Error: GEMINI_API_KEY is not defined. Please set it as an env variable or pass it via --apiKey');
+    console.error('Error: OPENROUTER_API_KEY (or GEMINI_API_KEY) is not defined. Please set it as an env variable or pass it via --apiKey');
     process.exit(1);
   }
+
+  const useDeepSeek = options.provider === 'deepseek';
+  if (useDeepSeek && options.apiKey === process.env.GEMINI_API_KEY) {
+    console.warn('Provider is deepseek but only GEMINI_API_KEY is set — DeepSeek calls will likely fail. Set OPENROUTER_API_KEY.');
+  }
+  console.log(`Using ${useDeepSeek ? 'DeepSeek V4 Flash (free) via OpenRouter' : 'Gemini 1.5 Flash'} for content generation.`);
 
   let finalTopic = options.topic;
   if (!finalTopic) {
@@ -124,7 +173,13 @@ async function main() {
     Return ONLY the topic title/concept as plain text. Do not include quotes, intro, or explanation.`;
 
     try {
-      finalTopic = (await callGemini(options.apiKey, topicPrompt)).trim();
+      if (useDeepSeek) {
+        const jsonText = await callDeepSeek(options.apiKey, `${topicPrompt} Respond as a JSON object exactly like this: {"topic": "..."}`);
+        finalTopic = JSON.parse(jsonText).topic?.trim();
+      } else {
+        finalTopic = (await callGemini(options.apiKey, topicPrompt)).trim();
+      }
+      if (!finalTopic) throw new Error('Empty topic in response');
       console.log(`Generated topic concept: "${finalTopic}"`);
     } catch (err) {
       console.error(`Failed to auto-generate topic: ${err.message}`);
@@ -170,6 +225,16 @@ async function main() {
     required: ['slug', 'tags', 'imagePrompt', 'en', 'hi', 'mr']
   };
 
+  const jsonStructureDescription = `The JSON object must have exactly these keys:
+{
+  "slug": "url-friendly-hyphenated-lowercase-identifier",
+  "tags": ["3-4 lowercase keyword tags"],
+  "imagePrompt": "highly descriptive prompt for a text-to-image generator representing the topic, e.g. 'futuristic city in Maharashtra with cyber-physical agricultural systems, dark cyberpunk lighting, wide shot'",
+  "en": { "title": "SEO English title under 60 chars", "description": "SEO English meta description under 160 chars", "content": "Full English article body in markdown (at least 4-5 paragraphs, h2/h3 headings, bullet points)" },
+  "hi": { "title": "Hindi title under 60 chars", "description": "Hindi meta description under 160 chars", "content": "Full Hindi article body in markdown (at least 4-5 paragraphs)" },
+  "mr": { "title": "Marathi title under 60 chars", "description": "Marathi meta description under 160 chars", "content": "Full Marathi article body in markdown (at least 4-5 paragraphs)" }
+}`;
+
   const blogPrompt = `You are a professional multilingual tech blogger. 
   Write a high-quality, comprehensive, and engaging blog post about: "${finalTopic}".
   
@@ -179,9 +244,17 @@ async function main() {
   2. The translation to Hindi (hi) and Marathi (mr) is natural, grammatically correct, and preserves professional technical concepts rather than literal vocabulary word-for-word translations.
   3. Include an "imagePrompt" that is a highly descriptive prompt suitable for a text-to-image generator (representing the topic, e.g. "futuristic city in Maharashtra with cyber-physical agricultural systems, dark cyberpunk lighting, wide shot").`;
 
-  console.log(`Requesting Gemini to write the articles...`);
+  const deepSeekBlogPrompt = `${blogPrompt}
+
+${jsonStructureDescription}
+
+Do not include markdown code fences, do not add any commentary outside the JSON object. Return ONLY the JSON object.`;
+
+  console.log(`Requesting ${useDeepSeek ? 'DeepSeek V4 Flash' : 'Gemini'} to write the articles...`);
   try {
-    const rawResult = await callGemini(options.apiKey, blogPrompt, responseSchema);
+    const rawResult = useDeepSeek
+      ? await callDeepSeek(options.apiKey, deepSeekBlogPrompt)
+      : await callGemini(options.apiKey, blogPrompt, responseSchema);
     const result = JSON.parse(rawResult);
 
     console.log(`Articles written successfully! Slug: "${result.slug}"`);

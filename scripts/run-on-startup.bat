@@ -17,10 +17,10 @@ if %errorlevel% neq 0 (
 echo [1/4] Pulling latest changes from Git...
 git pull origin main
 
-:: Check if GEMINI_API_KEY is available
-if "%GEMINI_API_KEY%"=="" (
-    echo [WARNING] GEMINI_API_KEY environment variable is not defined.
-    echo If the generation fails, please set the GEMINI_API_KEY variable in your Windows User Environment Variables.
+:: Check if OPENROUTER_API_KEY is available
+if "%OPENROUTER_API_KEY%"=="" (
+    echo [WARNING] OPENROUTER_API_KEY environment variable is not defined.
+    echo If the generation fails, please set the OPENROUTER_API_KEY variable in your Windows User Environment Variables.
 )
 
 :: Execute the generator
